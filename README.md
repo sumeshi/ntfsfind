@@ -1,5 +1,11 @@
 # ntfsfind
 
+[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![PyPI version](https://badge.fury.io/py/ntfsfind.svg)](https://badge.fury.io/py/ntfsfind)
+[![Python Versions](https://img.shields.io/pypi/pyversions/ntfsfind.svg)](https://pypi.org/project/ntfsfind/)
+
+A tool for search file paths from an NTFS volume on a Raw Image file.
+
 ## Usage
 
 ```bash
