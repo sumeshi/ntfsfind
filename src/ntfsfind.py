@@ -35,7 +35,7 @@ def ntfsfind():
     image = ImageFile(args.imagefile_path, args.volume_num)
 
     mft = image.main_volume._NtfsVolume__read_file('/$MFT')
-    pattern = re.compile(args.search_query)
+    pattern = re.compile(args.search_query.strip('/'))
     found_records = [i for i in gen_names(mft) if re.match(pattern, i)]
     for record in found_records:
         print(record)
