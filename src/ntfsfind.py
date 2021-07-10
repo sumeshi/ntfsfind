@@ -10,12 +10,6 @@ from ntfsdump import ImageFile, NtfsVolume, NtfsFile
 from mft import PyMftParser
 
 
-def load_mft(start_byte: int, path: Path, address: str) -> bytes:
-    return subprocess.check_output(
-        f"icat -i raw -f ntfs -o {start_byte} {path} {address}", shell=True,
-    )
-
-
 def gen_names(mft: bytes) -> Generator:
     csvparser = PyMftParser(io.BytesIO(mft))
     for c in csvparser.entries_csv():
@@ -23,12 +17,6 @@ def gen_names(mft: bytes) -> Generator:
 
 
 def ntfsfind():
-
-    if not shutil.which("mmls"):
-        print(
-            "The Sleuth Kit is not installed. Please execute the command `brew install sleuthkit`"
-        )
-        exit()
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -39,18 +27,15 @@ def ntfsfind():
         "--volume-num",
         "-n",
         type=int,
-        default=2,
-        help="NTFS volume number(default: 2, because volume1 is recovery partition).",
+        default=None,
+        help="NTFS volume number(default: autodetect).",
     )
     args = parser.parse_args()
 
-    i = ImageFile(args.imagefile_path)
-    v = i.volumes[args.volume_num - 1]
-    mft_address = v.find_baseaddress(["$MFT"])
-    mft = load_mft(start_byte=v.start_byte, path=v.path, address=mft_address)
+    image = ImageFile(args.imagefile_path, args.volume_num)
 
+    mft = image.main_volume._NtfsVolume__read_file('/$MFT')
     pattern = re.compile(args.search_query)
-
     found_records = [i for i in gen_names(mft) if re.match(pattern, i)]
     for record in found_records:
         print(record)

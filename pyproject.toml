@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ntfsfind"
-version = "1.0.0"
+version = "2.0.0"
 description = ""
 authors = ["sumeshi <j15322sn@gmail.com>"]
 license = "MIT"
@@ -16,8 +16,9 @@ ntfsfind = 'ntfsfind:ntfsfind'
 
 [tool.poetry.dependencies]
 python = "^3.7"
-ntfsdump = "^1.0.3"
+ntfsdump = "^2.0.0"
 mft = "^0.5.3"
+pytsk3 = "^20210419"
 
 [tool.poetry.dev-dependencies]
 black = "^19.10b0"

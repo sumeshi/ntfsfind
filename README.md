@@ -4,6 +4,8 @@
 [![PyPI version](https://badge.fury.io/py/ntfsfind.svg)](https://badge.fury.io/py/ntfsfind)
 [![Python Versions](https://img.shields.io/pypi/pyversions/ntfsfind.svg)](https://pypi.org/project/ntfsfind/)
 
+![ntfsfind](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/baa85b045e0043914218cf9c0e1d1722e1e7524b/ntfsfind.svg)
+
 A tool for search file paths from an NTFS volume on a Raw Image file.
 
 ## Usage
@@ -24,18 +26,9 @@ $ ntfsfind '.*\.evtx' ./path/to/your/imagefile.raw
     NTFS volume number(default 2, because volume1 is recovery partition).
 ```
 
-### Required Software
-This software requires `The Sleuth Kit`.
-
-https://www.sleuthkit.org/sleuthkit/
-
-```bash
-$ brew install sleuthkit
-```
-
 ## Installation
 
-### via pip
+### via PyPI
 
 ```
 $ pip install ntfsfind
@@ -49,4 +42,4 @@ Please report issues and feature requests. :sushi: :sushi: :sushi:
 
 ntfsfind is released under the [MIT](https://github.com/sumeshi/ntfsfind/blob/master/LICENSE) License.
 
-Powered by [The Sleuth Kit](https://www.sleuthkit.org/sleuthkit/).  
+Powered by [pytsk3](https://github.com/py4n6/pytsk).  
