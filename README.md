@@ -23,8 +23,8 @@ $ ntfsfind '.*\.evtx' ./path/to/your/imagefile.raw
 
 ### Options
 ```
---volume-num, -n:
-    NTFS volume number(default: autodetect).
+--volume-num, -n: NTFS volume number(default: autodetect).
+--multiprocess, -m: flag to run multiprocessing.
 ```
 
 ## Installation
