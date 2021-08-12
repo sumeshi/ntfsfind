@@ -1,19 +1,16 @@
 import io
 import re
-import shutil
 import argparse
-import subprocess
 from pathlib import Path
-from typing import Generator
+from typing import List
 
-from ntfsdump import ImageFile, NtfsVolume, NtfsFile
+from ntfsdump import ImageFile
 from mft import PyMftParser
 
 
-def gen_names(mft: bytes) -> Generator:
+def gen_names(mft: bytes) -> List[str]:
     csvparser = PyMftParser(io.BytesIO(mft))
-    for c in csvparser.entries_csv():
-        yield c.decode("utf8").split(",")[-1].strip()
+    return [c.decode("utf8").split(",")[-1].strip() for c in csvparser.entries_csv()]
 
 
 def ntfsfind():
