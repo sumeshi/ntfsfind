@@ -16,9 +16,29 @@ $ ntfsfind <query_regex> ./path/to/your/imagefile.raw
 ```
 
 ### Example
+Extracts $MFT information directly from image files in raw device mapping format.  
+ntfsfind can use regular expressions to search for files.
 
 ```.bash
 $ ntfsfind '.*\.evtx' ./path/to/your/imagefile.raw
+Windows/System32/winevt/Logs/Setup.evtx
+Windows/System32/winevt/Logs/Microsoft-Windows-All-User-Install-Agent%4Admin.evtx
+Logs/Windows PowerShell.evtx
+Logs/Microsoft-Windows-Winlogon%4Operational.evtx
+Logs/Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
+Logs/Microsoft-Windows-Windows Firewall With Advanced Security%4ConnectionSecurity.evtx
+Logs/Microsoft-Windows-UserPnp%4ActionCenter.evtx
+Logs/Microsoft-Windows-TerminalServices-RemoteConnectionManager%4Admin.evtx
+Logs/Microsoft-Windows-TerminalServices-LocalSessionManager%4Admin.evtx
+Logs/Microsoft-Windows-SMBServer%4Security.evtx
+Logs/Microsoft-Windows-SMBServer%4Connectivity.evtx
+Logs/Microsoft-Windows-SMBServer%4Audit.evtx
+Logs/Microsoft-Windows-SmbClient%4Security.evtx
+Logs/Microsoft-Windows-SMBClient%4Operational.evtx
+Logs/Microsoft-Windows-Shell-Core%4ActionCenter.evtx
+Logs/Microsoft-Windows-SettingSync%4Operational.evtx
+...
+
 ```
 
 ### Options
