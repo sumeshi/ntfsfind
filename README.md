@@ -24,7 +24,7 @@ $ ntfsfind '.*\.evtx' ./path/to/your/imagefile.raw
 ### Options
 ```
 --volume-num, -n:
-    NTFS volume number(default 2, because volume1 is recovery partition).
+    NTFS volume number(default: autodetect).
 ```
 
 ## Installation
