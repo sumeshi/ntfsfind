@@ -2,7 +2,7 @@ import io
 import re
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from multiprocessing import Pool, cpu_count
 
 from ntfsdump import ImageFile
@@ -26,7 +26,17 @@ def gen_names(mft: bytes, multiprocess: bool) -> List[str]:
         return [c.decode("utf8").split(",")[-1].strip() for c in csvparser.entries_csv()]
 
 
-def ntfsfind():
+def ntfsfind(imagefile_path: str, search_query: str, volume_num: Optional[int] = None, multiprocess: bool = False) -> List[str]:
+    image = ImageFile(Path(imagefile_path).resolve(), volume_num)
+
+    mft = image.main_volume._NtfsVolume__read_file('/$MFT')
+    pattern = re.compile(search_query.strip('/'))
+    found_records = [i for i in gen_names(mft, multiprocess) if re.match(pattern, i)]
+
+    return found_records
+
+
+def entry_point():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -37,14 +47,14 @@ def ntfsfind():
     parser.add_argument("--multiprocess", "-m", action='store_true', help="flag to run multiprocessing.")
     args = parser.parse_args()
 
-    image = ImageFile(args.imagefile_path, args.volume_num)
-
-    mft = image.main_volume._NtfsVolume__read_file('/$MFT')
-    pattern = re.compile(args.search_query.strip('/'))
-    found_records = [i for i in gen_names(mft, args.multiprocess) if re.match(pattern, i)]
-    for record in found_records:
-        print(record)
+    found_records = ntfsfind(
+        imagefile_path=args.imagefile_path,
+        search_query=args.search_query,
+        volume_num=args.volume_num,
+        multiprocess=args.multiprocess,
+    )
+    print('\n'.join(found_records))
 
 
 if __name__ == "__main__":
-    ntfsfind()
+    entry_point()

@@ -15,6 +15,27 @@ A tool for search file paths from an NTFS volume on a Raw Image file.
 $ ntfsfind <query_regex> ./path/to/your/imagefile.raw
 ```
 
+```python
+from ntfsfind import ntfsfind
+
+# imagefile_path: str
+# search_query: str
+# volume_num: Optional[int] = None
+# multiprocess: bool = False
+#
+# -> List[str]
+
+records = ntfsfind(
+    imagefile_path='./path/to/your/imagefile.raw',
+    search_query='.*\.evtx',
+    volume_num=2,
+    multiprocess=False
+)
+
+for record in records:
+    print(record)
+```
+
 ### Example
 Extracts $MFT information directly from image files in raw device mapping format.  
 ntfsfind can use regular expressions to search for files.
