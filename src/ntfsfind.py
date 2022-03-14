@@ -44,23 +44,21 @@ def ntfsfind(
 
 
 def entry_point():
-
+    # parse cli arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "search_query", type=str, help="Target File Name (regex is worked.).",
-    )
-    parser.add_argument("imagefile_path", type=Path, help="raw image file")
-    parser.add_argument("--volume-num", "-n", type=int, default=None, help="NTFS volume number(default: autodetect).",)
-    parser.add_argument("--type", "-t", type=str, default='raw', help="format of the source image file (default: raw(dd-format)).")
-    parser.add_argument("--multiprocess", "-m", action='store_true', help="flag to run multiprocessing.")
+    parser.add_argument("search_query", type=str, help="Regex search term (e.g '.*\.evtx').",)
+    parser.add_argument("imagefile_path", type=Path, help="Source image file.")
+    parser.add_argument("--volume-num", "-n", type=int, default=None, help="Number of the source volume (default: autodetect).",)
+    parser.add_argument("--type", "-t", type=str, default='raw', help="Format of the source image file (default: raw(dd-format)).")
+    parser.add_argument("--multiprocess", "-m", action='store_true', help="Flag to run multiprocessing.")
     args = parser.parse_args()
 
-    found_records = ntfsfind(
-        imagefile_path=args.imagefile_path,
-        search_query=args.search_query,
-        volume_num=args.volume_num,
-        file_type=args.type,
-        multiprocess=args.multiprocess,
+    found_records: list[str] = ntfsfind(
+        args.imagefile_path,
+        args.search_query,
+        args.volume_num,
+        args.type,
+        args.multiprocess,
     )
     print('\n'.join(found_records))
 
