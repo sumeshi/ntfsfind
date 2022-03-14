@@ -2,18 +2,19 @@ import io
 import re
 import argparse
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional, Literal
 from multiprocessing import Pool, cpu_count
 
-from ntfsdump import ImageFile
+from ntfsdump.models.ImageFile import ImageFile
+
 from mft import PyMftParser
 
 
-def extract_name(line: bytes):
+def extract_name(line: bytes) -> str:
     return line.decode("utf8").split(",")[-1].strip()
 
 
-def gen_names(mft: bytes, multiprocess: bool) -> List[str]:
+def gen_names(mft: bytes, multiprocess: bool) -> list[str]:
     csvparser = PyMftParser(io.BytesIO(mft))
     if multiprocess:
         with Pool(cpu_count()) as pool:
@@ -26,8 +27,14 @@ def gen_names(mft: bytes, multiprocess: bool) -> List[str]:
         return [c.decode("utf8").split(",")[-1].strip() for c in csvparser.entries_csv()]
 
 
-def ntfsfind(imagefile_path: str, search_query: str, volume_num: Optional[int] = None, multiprocess: bool = False) -> List[str]:
-    image = ImageFile(Path(imagefile_path).resolve(), volume_num)
+def ntfsfind(
+    imagefile_path: str,
+    search_query: str,
+    volume_num: Optional[int] = None,
+    file_type: Literal['raw', 'e01'] = 'raw',
+    multiprocess: bool = False
+) -> list[str]:
+    image = ImageFile(Path(imagefile_path).resolve(), volume_num, file_type)
 
     mft = image.main_volume._NtfsVolume__read_file('/$MFT')
     pattern = re.compile(search_query.strip('/'))
@@ -44,6 +51,7 @@ def entry_point():
     )
     parser.add_argument("imagefile_path", type=Path, help="raw image file")
     parser.add_argument("--volume-num", "-n", type=int, default=None, help="NTFS volume number(default: autodetect).",)
+    parser.add_argument("--type", "-t", type=str, default='raw', help="format of the source image file (default: raw(dd-format)).")
     parser.add_argument("--multiprocess", "-m", action='store_true', help="flag to run multiprocessing.")
     args = parser.parse_args()
 
@@ -51,6 +59,7 @@ def entry_point():
         imagefile_path=args.imagefile_path,
         search_query=args.search_query,
         volume_num=args.volume_num,
+        file_type=args.type,
         multiprocess=args.multiprocess,
     )
     print('\n'.join(found_records))
