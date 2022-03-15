@@ -1,18 +1,10 @@
-FROM python:3.7-buster
+FROM python:3.9-buster
 
-# configure poetry
-RUN pip install poetry
-RUN poetry config virtualenvs.create false
-
-# install dependencies
+# install from pypi
 WORKDIR /app
-COPY . /app
-RUN poetry install
-
-# delete caches
-RUN rm -rf ~/.cache/pip
+RUN pip install ntfsfind
 
 # you can rewrite this command when running the docker container.
-# ex. docker run -t --rm -v $(pwd):/app/work ntfsfind:latest '/\$MFT' /app/work/sample.raw
+# ex. docker run --rm -v $(pwd):/app -t ntfsdump:latest '/$MFT' /app/sample.raw
 ENTRYPOINT ["ntfsfind"]
 CMD ["-h"]
