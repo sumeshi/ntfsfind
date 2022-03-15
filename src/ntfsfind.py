@@ -3,29 +3,40 @@ import re
 import argparse
 from pathlib import Path
 from typing import Optional, Literal
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 
 from ntfsdump.models.ImageFile import ImageFile
 
 from mft import PyMftParser, PyMftEntry
 
 
+def task(pattern: re.Pattern, entry: PyMftEntry) -> set[str]:
+    results = list()
+    if re.match(pattern, entry.full_path):
+        results.append(entry.full_path)
+    for attribute in entry.attributes():
+        if attribute.name and re.match(pattern, f"{entry.full_path}:{attribute.name}"):
+            results.append(f"{entry.full_path}:{attribute.name}")
+    return results
+
+
 def gen_names(mft: bytes, pattern: re.Pattern, multiprocess: bool) -> set[str]:
     parser = PyMftParser(io.BytesIO(mft))
-    results = set()
 
-    # assign jobs
+    # parallel execute
     if multiprocess:
-        pass
+        CHUNK_SIZE = 10000
 
+        # assign jobs
+        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="ntfsfind") as executor:
+            resultset = executor.map(partial(task, pattern), parser, chunksize=CHUNK_SIZE)
+
+    # serial execute
     else:
-        for entry in parser.entries():
-            if re.match(pattern, entry.full_path):
-                results.add(entry.full_path)
-            for attribute in entry.attributes():
-                if attribute.name and re.match(pattern, f"{entry.full_path}:{attribute.name}"):
-                    results.add(f"{entry.full_path}:{attribute.name}")
+        resultset = [task(pattern, entry) for entry in parser.entries()]
 
-    return results
+    return sum(resultset, [])
 
 def ntfsfind(
     imagefile_path: str,
