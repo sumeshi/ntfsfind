@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Literal, Generator
 from functools import partial
 from concurrent.futures import ProcessPoolExecutor
+from importlib.metadata import version
 
 from ntfsdump.models.ImageFile import ImageFile
 
@@ -68,6 +69,7 @@ def entry_point():
     parser.add_argument("--volume-num", "-n", type=int, default=None, help="Number of the source volume (default: autodetect).",)
     parser.add_argument("--type", "-t", type=str, default='raw', help="Format of the source image file (default: raw(dd-format)).")
     parser.add_argument("--multiprocess", "-m", action='store_true', help="Flag to run multiprocessing.")
+    parser.add_argument("--version", "-v", action="version", version=version('ntfsfind'))
     args = parser.parse_args()
 
     found_records: list[str] = ntfsfind(
