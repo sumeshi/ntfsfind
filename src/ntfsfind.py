@@ -3,29 +3,29 @@ import re
 import argparse
 from pathlib import Path
 from typing import Optional, Literal
-from multiprocessing import Pool, cpu_count
 
 from ntfsdump.models.ImageFile import ImageFile
 
-from mft import PyMftParser
+from mft import PyMftParser, PyMftEntry
 
 
-def extract_name(line: bytes) -> str:
-    return line.decode("utf8").split(",")[-1].strip()
+def gen_names(mft: bytes, pattern: re.Pattern, multiprocess: bool) -> set[str]:
+    parser = PyMftParser(io.BytesIO(mft))
+    results = set()
 
-
-def gen_names(mft: bytes, multiprocess: bool) -> list[str]:
-    csvparser = PyMftParser(io.BytesIO(mft))
+    # assign jobs
     if multiprocess:
-        with Pool(cpu_count()) as pool:
-            results = pool.map_async(
-                extract_name,
-                csvparser.entries_csv()
-            )
-            return results.get(timeout=None)
-    else:
-        return [c.decode("utf8").split(",")[-1].strip() for c in csvparser.entries_csv()]
+        pass
 
+    else:
+        for entry in parser.entries():
+            if re.match(pattern, entry.full_path):
+                results.add(entry.full_path)
+            for attribute in entry.attributes():
+                if attribute.name and re.match(pattern, f"{entry.full_path}:{attribute.name}"):
+                    results.add(f"{entry.full_path}:{attribute.name}")
+
+    return results
 
 def ntfsfind(
     imagefile_path: str,
@@ -38,7 +38,8 @@ def ntfsfind(
 
     mft = image.main_volume._NtfsVolume__read_file('/$MFT')
     pattern = re.compile(search_query.strip('/'))
-    found_records = [i for i in gen_names(mft, multiprocess) if re.match(pattern, i)]
+    found_records = [i for i in gen_names(mft, pattern, multiprocess)]
+    # found_records = [i for i in gen_names(mft, multiprocess) if re.match(pattern, i)]
 
     return found_records
 

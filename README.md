@@ -3,16 +3,16 @@
 [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 [![PyPI version](https://badge.fury.io/py/ntfsfind.svg)](https://badge.fury.io/py/ntfsfind)
 [![Python Versions](https://img.shields.io/pypi/pyversions/ntfsfind.svg)](https://pypi.org/project/ntfsfind/)
-[![DockerHub Status](https://shields.io/docker/cloud/build/sumeshi/ntfsfind)](https://hub.docker.com/r/sumeshi/ntfsfind)
+[![docker build](https://github.com/sumeshi/ntfsdump/actions/workflows/build-docker-image.yaml/badge.svg)](https://github.com/sumeshi/ntfsdump/actions/workflows/build-docker-image.yaml)
 
 ![ntfsfind](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/baa85b045e0043914218cf9c0e1d1722e1e7524b/ntfsfind.svg)
 
-A tool for search file paths from an NTFS volume on a Raw Image file.
+A tool for search file paths from an NTFS volume on an Image file.
 
 ## Usage
 
 ```bash
-$ ntfsfind <query_regex> ./path/to/your/imagefile.raw
+$ ntfsfind {{query_regex}} ./path/to/imagefile.raw
 ```
 
 ```python
@@ -21,6 +21,7 @@ from ntfsfind import ntfsfind
 # imagefile_path: str
 # search_query: str
 # volume_num: Optional[int] = None
+# file_type: Literal['raw', 'e01'] = 'raw'
 # multiprocess: bool = False
 #
 # -> List[str]
@@ -29,6 +30,7 @@ records = ntfsfind(
     imagefile_path='./path/to/your/imagefile.raw',
     search_query='.*\.evtx',
     volume_num=2,
+    file_type='raw',
     multiprocess=False
 )
 
