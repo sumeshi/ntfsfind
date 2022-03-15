@@ -1,42 +1,49 @@
 import io
+import os
 import re
 import argparse
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Optional, Literal, Generator
 from functools import partial
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 from ntfsdump.models.ImageFile import ImageFile
 
 from mft import PyMftParser, PyMftEntry
 
 
-def task(pattern: re.Pattern, entry: PyMftEntry) -> set[str]:
-    results = list()
-    if re.match(pattern, entry.full_path):
-        results.append(entry.full_path)
-    for attribute in entry.attributes():
-        if attribute.name and re.match(pattern, f"{entry.full_path}:{attribute.name}"):
-            results.append(f"{entry.full_path}:{attribute.name}")
-    return results
+def gen_filepaths(entries: list[PyMftEntry]) -> Generator[str, None, None]:
+    for entry in entries:
+        yield entry.full_path
+        for attribute in entry.attributes():
+            if attribute.name:
+                yield f"{entry.full_path}:{attribute.name}"
 
 
-def gen_names(mft: bytes, pattern: re.Pattern, multiprocess: bool) -> set[str]:
+def filter_by_pattern(pattern: re.Pattern, filepath: str) -> str:
+    if re.match(pattern, filepath):
+        return filepath
+
+
+def find_records(mft: bytes, pattern: re.Pattern, multiprocess: bool) -> set[str]:
     parser = PyMftParser(io.BytesIO(mft))
 
     # parallel execute
     if multiprocess:
         CHUNK_SIZE = 10000
-
-        # assign jobs
-        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="ntfsfind") as executor:
-            resultset = executor.map(partial(task, pattern), parser, chunksize=CHUNK_SIZE)
+        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+            return [
+                el for el in executor.map(
+                    partial(filter_by_pattern, pattern),
+                    gen_filepaths(parser.entries()),
+                    chunksize=CHUNK_SIZE
+                ) if el
+            ]
 
     # serial execute
     else:
-        resultset = [task(pattern, entry) for entry in parser.entries()]
+        return [filepath for filepath in gen_filepaths(parser.entries()) if filepath and re.match(pattern, filepath)]
 
-    return sum(resultset, [])
 
 def ntfsfind(
     imagefile_path: str,
@@ -49,10 +56,8 @@ def ntfsfind(
 
     mft = image.main_volume._NtfsVolume__read_file('/$MFT')
     pattern = re.compile(search_query.strip('/'))
-    found_records = [i for i in gen_names(mft, pattern, multiprocess)]
-    # found_records = [i for i in gen_names(mft, multiprocess) if re.match(pattern, i)]
 
-    return found_records
+    return find_records(mft, pattern, multiprocess)
 
 
 def entry_point():
