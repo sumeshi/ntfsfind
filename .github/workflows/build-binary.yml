@@ -44,7 +44,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          poetry add mft
+          poetry add mft@latest
           poetry install
 
       - name: run python
