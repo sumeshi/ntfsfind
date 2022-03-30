@@ -44,7 +44,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          poetry add mft@latest
+          poetry add --dev setuptools-rust
           poetry install
 
       - name: run python
