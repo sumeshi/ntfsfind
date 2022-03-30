@@ -2,8 +2,10 @@ name: build-binary
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - master
+    #tags:
+    #  - "v*.*.*"
 
 jobs:
   build-windows:
@@ -19,6 +21,12 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
       
       - name: replace version
         run: |
