@@ -37,10 +37,14 @@ jobs:
           f.write_text(text)
         shell: python
 
-      - name: Install dependencies
+      - name: Install poetry
         run: |
           pip install poetry
           poetry config virtualenvs.in-project true
+          
+      - name: Install dependencies
+        run: |
+          poetry add mft
           poetry install
 
       - name: run python
