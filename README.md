@@ -150,6 +150,6 @@ Please report issues and feature requests. :sushi: :sushi: :sushi:
 
 ## License
 
-ntfsfind is released under the [MIT](https://github.com/sumeshi/ntfsfind/blob/master/LICENSE) License.
+ntfsfind is released under the [LGPLv3+](https://github.com/sumeshi/ntfsfind/blob/master/LICENSE) License.
 
 Powered by [pytsk3](https://github.com/py4n6/pytsk), [libewf](https://github.com/libyal/libewf) and [pymft-rs](https://github.com/omerbenamram/pymft-rs).
