@@ -3,7 +3,7 @@ name = "ntfsfind"
 version = "2.3.1"
 description = "A tool for search paths from an NTFS volume on an image file."
 authors = ["sumeshi <sum3sh1@protonmail.com>"]
-license = "MIT"
+license = "LGPLv3+"
 readme = "README.md"
 
 repository = "https://github.com/sumeshi/ntfsfind"
