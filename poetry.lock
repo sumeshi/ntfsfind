@@ -104,7 +104,7 @@ python-versions = "*"
 
 [[package]]
 name = "ntfsdump"
-version = "2.3.0"
+version = "2.3.4"
 description = "A tool for extract any files from an NTFS volume on an image file."
 category = "main"
 optional = false
@@ -177,7 +177,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "4ab818ceb45208958b9ce2f3dbe124a62ffec22efb3a2d29d4b89f408935aabe"
+content-hash = "7c380b1657fd26d427128a60f1c16b010e951cec8186951a523085ba7831ce07"
 
 [metadata.files]
 black = [
@@ -272,8 +272,8 @@ mypy-extensions = [
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
 ]
 ntfsdump = [
-    {file = "ntfsdump-2.3.0-py3-none-any.whl", hash = "sha256:1c4bb1c5f6ad6b23fa468e109280a0cd90c4195607cb7608ffd496f0209eabe8"},
-    {file = "ntfsdump-2.3.0.tar.gz", hash = "sha256:a0cd92d2f0b21abb4621b2fd875eb1a0b0da26f4d3499ec39446fc94046d5876"},
+    {file = "ntfsdump-2.3.4-py3-none-any.whl", hash = "sha256:036132850931146da766de6552357ab62c264724c99973ec71542e86da1d0e58"},
+    {file = "ntfsdump-2.3.4.tar.gz", hash = "sha256:ea360012ebb4c997f530366ca0ba6ec844e83418306eef53736434031f928831"},
 ]
 pathspec = [
     {file = "pathspec-0.9.0-py2.py3-none-any.whl", hash = "sha256:7d15c4ddb0b5c802d161efc417ec1a2558ea2653c2e8ad9c19098201dc1c993a"},

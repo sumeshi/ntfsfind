@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ntfsfind"
-version = "2.3.1"
+version = "2.3.2"
 description = "A tool for search paths from an NTFS volume on an image file."
 authors = ["sumeshi <sum3sh1@protonmail.com>"]
 license = "LGPLv3+"
@@ -16,7 +16,7 @@ ntfsfind = 'ntfsfind:entry_point'
 
 [tool.poetry.dependencies]
 python = "^3.9"
-ntfsdump = "==2.3.0"
+ntfsdump = "^2.3.4"
 mft = "^0.5.6"
 pytsk3 = "^20211111"
 
