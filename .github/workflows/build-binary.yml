@@ -2,10 +2,8 @@ name: build-binary
 
 on:
   push:
-    branches:
-      - master
-    #tags:
-    #  - "v*.*.*"
+    tags:
+      - "v*.*.*"
 
 jobs:
   build-windows:
@@ -33,7 +31,7 @@ jobs:
           from pathlib import Path
           version = [l for l in Path('pyproject.toml').read_text().splitlines() if 'version' in l][0].split(' ')[-1].strip('\"')
           f = Path('src/ntfsfind.py')
-          text = f.read_text().replace("version('ntfsfind')", f"\'{version}\'")
+          text = f.read_text().replace("get_version('ntfsfind')", f"\'{version}\'")
           f.write_text(text)
         shell: python
 
