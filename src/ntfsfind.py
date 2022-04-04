@@ -50,7 +50,18 @@ def ntfsfind(
     imagefile_path: str,
     search_query: str,
     volume_num: Optional[int] = None,
-    file_type: Literal['raw', 'e01'] = 'raw',
+    file_type: Literal[
+        'raw',
+        'RAW',
+        'e01',
+        'E01',
+        'vhd',
+        'VHD',
+        'vhdx',
+        'VHDX',
+        'vmdk',
+        'VMDK',
+    ] = 'raw',
     multiprocess: bool = False
 ) -> list[str]:
     image = ImageFile(Path(imagefile_path).resolve(), volume_num, file_type)

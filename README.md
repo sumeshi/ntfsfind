@@ -108,7 +108,7 @@ https://github.com/sumeshi/ntfsdump
 
 --type, -t:
     image file format (default: raw(dd-format)).
-    (raw|e01) are supported.
+    (raw|e01|vhd|vhdx|vmdk) are supported.
 
 --multiprocess, -m:
     flag to run multiprocessing.
