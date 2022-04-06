@@ -21,7 +21,7 @@ from ntfsfind import ntfsfind
 # imagefile_path: str
 # search_query: str
 # volume_num: Optional[int] = None
-# file_type: Literal['raw', 'e01'] = 'raw'
+# file_type: Literal['raw', 'e01', 'vhd', 'vhdx', 'vmdk'] = 'raw'
 # multiprocess: bool = False
 #
 # -> List[str]
