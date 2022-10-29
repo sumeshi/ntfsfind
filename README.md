@@ -7,9 +7,12 @@
 
 ![ntfsfind](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/baa85b045e0043914218cf9c0e1d1722e1e7524b/ntfsfind.svg)
 
-A tool for search file paths from an NTFS volume on an Image file.
+A tool to search file/directory/ADS paths directly from NTFS image files.
+
 
 ## Usage
+
+ntfsfind can be invoked from the shell or run from a Python script.
 
 ```bash
 $ ntfsfind {{query_regex}} /path/to/imagefile.raw
@@ -41,8 +44,8 @@ for record in records:
 
 ### Query
 
-The query for ntfsfind is a regular expression of the file path to be extracted.
-The paths are separated by slashes.
+This tool can search files/directories/ADS with regular expression queries.
+Paths are separated by slashes(Unix/Linux-Style), not backslashes(Windows-Style).
 
 e.g.
 ```
@@ -58,8 +61,8 @@ Query: '.*:.*'
 
 
 ### Example
-Extracts $MFT information directly from image files in raw device mapping format.  
-ntfsfind can use regular expressions to search for files.
+
+This tool can extract and search $MFT information directly from image files(RAW, E01, VHD, VHDX, VMDK) with recorded NTFS volumes as follows.
 
 ```.bash
 $ ntfsfind '.*\.evtx' /path/to//imagefile.raw
@@ -96,6 +99,9 @@ https://github.com/sumeshi/ntfsdump
 
 
 ### Options
+
+The tool supports the following options.
+
 ```
 --help, -h:
     show help message and exit.
@@ -118,9 +124,9 @@ https://github.com/sumeshi/ntfsdump
 ## Prerequisites
 The image file to be processed must meet the following conditions.
 
-- File format is raw, e01, vhd, vhdx, or vmdk.
-- NT file system(NTFS)
-- GUID partition table(GPT)
+- File format is RAW, E01, VHD, VHDX, or VMDK.
+- The target volume is an NT file system(NTFS).
+- The target partition style is GUID partition table(GPT).
 
 Additional file formats will be added in the future.  
 If you have any questions, please submit an issue.  
