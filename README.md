@@ -21,7 +21,7 @@ from ntfsfind import ntfsfind
 # imagefile_path: str
 # search_query: str
 # volume_num: Optional[int] = None
-# file_type: Literal['raw', 'e01'] = 'raw'
+# file_type: Literal['raw', 'e01', 'vhd', 'vhdx', 'vmdk'] = 'raw'
 # multiprocess: bool = False
 #
 # -> List[str]
@@ -108,7 +108,7 @@ https://github.com/sumeshi/ntfsdump
 
 --type, -t:
     image file format (default: raw(dd-format)).
-    (raw|e01) are supported.
+    (raw|e01|vhd|vhdx|vmdk) are supported.
 
 --multiprocess, -m:
     flag to run multiprocessing.
@@ -118,7 +118,7 @@ https://github.com/sumeshi/ntfsdump
 ## Prerequisites
 The image file to be processed must meet the following conditions.
 
-- raw or e01 file format
+- File format is raw, e01, vhd, vhdx, or vmdk.
 - NT file system(NTFS)
 - GUID partition table(GPT)
 
@@ -150,6 +150,11 @@ Please report issues and feature requests. :sushi: :sushi: :sushi:
 
 ## License
 
-ntfsfind is released under the [MIT](https://github.com/sumeshi/ntfsfind/blob/master/LICENSE) License.
+ntfsfind is released under the [LGPLv3+](https://github.com/sumeshi/ntfsfind/blob/master/LICENSE) License.
 
-Powered by [pytsk3](https://github.com/py4n6/pytsk), [libewf](https://github.com/libyal/libewf) and [pymft-rs](https://github.com/omerbenamram/pymft-rs).
+Powered by following libraries.
+- [pytsk3](https://github.com/py4n6/pytsk)
+- [libewf](https://github.com/libyal/libewf)
+- [libvhdi](https://github.com/libyal/libvhdi)
+- [libvmdk](https://github.com/libyal/libvmdk)
+- [pymft-rs](https://github.com/omerbenamram/pymft-rs)

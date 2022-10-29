@@ -61,6 +61,22 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "libvhdi-python"
+version = "20210425"
+description = "Python bindings module for libvhdi"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "libvmdk-python"
+version = "20210807"
+description = "Python bindings module for libvmdk"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "mccabe"
 version = "0.6.1"
 description = "McCabe checker, plugin for flake8"
@@ -104,7 +120,7 @@ python-versions = "*"
 
 [[package]]
 name = "ntfsdump"
-version = "2.3.0"
+version = "2.4.0"
 description = "A tool for extract any files from an NTFS volume on an image file."
 category = "main"
 optional = false
@@ -112,6 +128,8 @@ python-versions = ">=3.9,<4.0"
 
 [package.dependencies]
 libewf-python = ">=20201230,<20201231"
+libvhdi-python = ">=20210425,<20210426"
+libvmdk-python = ">=20210807,<20210808"
 pytsk3 = ">=20211111,<20211112"
 
 [[package]]
@@ -177,7 +195,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "4ab818ceb45208958b9ce2f3dbe124a62ffec22efb3a2d29d4b89f408935aabe"
+content-hash = "2e842a33268aba27050b8e6f46955cc850ca8f0a922c6a98ab25c640aa7ddaa8"
 
 [metadata.files]
 black = [
@@ -223,6 +241,16 @@ libewf-python = [
     {file = "libewf_python-20201230-cp27-cp27m-win_amd64.whl", hash = "sha256:407b8edd45ed853a9edbcba594c5497dbb29b5078f3a8cd1ccbbdf0bc2df9c2a"},
     {file = "libewf_python-20201230-cp39-cp39-win32.whl", hash = "sha256:b486690f47cd9be32bc2d10bba5f8c1097b928c1bd3c66821b2fc79fd6e0272a"},
     {file = "libewf_python-20201230-cp39-cp39-win_amd64.whl", hash = "sha256:c6ae2200bb1a9fda959d4f762dae6875100ce29e178188aa7aee1d58b005a73f"},
+]
+libvhdi-python = [
+    {file = "libvhdi-python-20210425.tar.gz", hash = "sha256:ed5818f5fd0fffc3eeca92fc56c1d4f54450a90f9d4f55ea5c5d1edf8b219a3b"},
+]
+libvmdk-python = [
+    {file = "libvmdk-python-20210807.tar.gz", hash = "sha256:c82f1050c237837dbfaf5b011ed61c49c42f5946c45802f66d611f54aecb2fc8"},
+    {file = "libvmdk_python-20210807-cp27-cp27m-win32.whl", hash = "sha256:287efffff8ef6ac924c80d1280949b5396c7c89a7ae783ecce6081d1489090d9"},
+    {file = "libvmdk_python-20210807-cp27-cp27m-win_amd64.whl", hash = "sha256:d0670bf181fe78d6fd193f9798d113d2cafd3796686e7b59f94ce9129c49cacf"},
+    {file = "libvmdk_python-20210807-cp39-cp39-win32.whl", hash = "sha256:1e8f5fcd4d7fd2ab311d95907d82b4bcf23bfa4acb95cc52649d9316d3dc8c2e"},
+    {file = "libvmdk_python-20210807-cp39-cp39-win_amd64.whl", hash = "sha256:71e34fd36131c8ec319687eced703e0fd45831d2407d547d810c764824f2393d"},
 ]
 mccabe = [
     {file = "mccabe-0.6.1-py2.py3-none-any.whl", hash = "sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42"},
@@ -272,8 +300,8 @@ mypy-extensions = [
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
 ]
 ntfsdump = [
-    {file = "ntfsdump-2.3.0-py3-none-any.whl", hash = "sha256:1c4bb1c5f6ad6b23fa468e109280a0cd90c4195607cb7608ffd496f0209eabe8"},
-    {file = "ntfsdump-2.3.0.tar.gz", hash = "sha256:a0cd92d2f0b21abb4621b2fd875eb1a0b0da26f4d3499ec39446fc94046d5876"},
+    {file = "ntfsdump-2.4.0-py3-none-any.whl", hash = "sha256:81d1c2c0d6620cd04f91db9b9e866ce35f338a32d003744b73f8baed0c41542c"},
+    {file = "ntfsdump-2.4.0.tar.gz", hash = "sha256:a1fdc2311dc513b6bc133ef93caa5004e9badcd32fc8ee5207c9350894bbc156"},
 ]
 pathspec = [
     {file = "pathspec-0.9.0-py2.py3-none-any.whl", hash = "sha256:7d15c4ddb0b5c802d161efc417ec1a2558ea2653c2e8ad9c19098201dc1c993a"},

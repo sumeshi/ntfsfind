@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, Literal, Generator
 from functools import partial
 from concurrent.futures import ProcessPoolExecutor
-from importlib.metadata import version
+from importlib.metadata import version, PackageNotFoundError
 
 from ntfsdump.models.ImageFile import ImageFile
 
@@ -50,7 +50,18 @@ def ntfsfind(
     imagefile_path: str,
     search_query: str,
     volume_num: Optional[int] = None,
-    file_type: Literal['raw', 'e01'] = 'raw',
+    file_type: Literal[
+        'raw',
+        'RAW',
+        'e01',
+        'E01',
+        'vhd',
+        'VHD',
+        'vhdx',
+        'VHDX',
+        'vmdk',
+        'VMDK',
+    ] = 'raw',
     multiprocess: bool = False
 ) -> list[str]:
     image = ImageFile(Path(imagefile_path).resolve(), volume_num, file_type)
@@ -61,6 +72,13 @@ def ntfsfind(
     return find_records(mft, pattern, multiprocess)
 
 
+def get_version(name: str) -> str:
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return ''
+
+
 def entry_point():
     # parse cli arguments
     parser = argparse.ArgumentParser()
@@ -69,7 +87,7 @@ def entry_point():
     parser.add_argument("--volume-num", "-n", type=int, default=None, help="Number of the source volume (default: autodetect).",)
     parser.add_argument("--type", "-t", type=str, default='raw', help="Format of the source image file (default: raw(dd-format)).")
     parser.add_argument("--multiprocess", "-m", action='store_true', help="Flag to run multiprocessing.")
-    parser.add_argument("--version", "-v", action="version", version=version('ntfsfind'))
+    parser.add_argument("--version", "-v", action="version", version=get_version('ntfsfind'))
     args = parser.parse_args()
 
     found_records: list[str] = ntfsfind(
