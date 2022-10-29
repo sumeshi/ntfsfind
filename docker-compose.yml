@@ -1,0 +1,18 @@
+version: "3.8"
+
+# It can also be run from docker-compose by specifying the following options.
+# Note that only the current directory can be specified as a target.
+# 
+# $ ARGUMENTS="'.*' ./path/to/imagefile" docker-compose up
+
+services:
+  app:
+    container_name: ntfsfind
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    environment:
+      - ARGUMENTS="-h"
+    command: ${ARGUMENTS}
