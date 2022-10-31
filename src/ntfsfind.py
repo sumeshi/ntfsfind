@@ -62,12 +62,13 @@ def ntfsfind(
         'vmdk',
         'VMDK',
     ] = 'raw',
-    multiprocess: bool = False
+    multiprocess: bool = False,
+    ignore_case: bool = False,
 ) -> list[str]:
     image = ImageFile(Path(imagefile_path).resolve(), volume_num, file_type)
 
     mft = image.main_volume._NtfsVolume__read_file('/$MFT')
-    pattern = re.compile(search_query.strip('/'))
+    pattern = re.compile(search_query.strip('/'), re.IGNORECASE) if ignore_case else re.compile(search_query.strip('/')) 
 
     return find_records(mft, pattern, multiprocess)
 
@@ -84,8 +85,12 @@ def entry_point():
     parser = argparse.ArgumentParser()
     parser.add_argument("search_query", type=str, help="Regex search term (e.g '.*\.evtx').",)
     parser.add_argument("imagefile_path", type=Path, help="Source image file.")
+
     parser.add_argument("--volume-num", "-n", type=int, default=None, help="Number of the source volume (default: autodetect).",)
     parser.add_argument("--type", "-t", type=str, default='raw', help="Format of the source image file (default: raw(dd-format)).")
+
+    parser.add_argument("--ignore-case", "-i", action='store_true', help="Flag to search with ignorecase.")
+
     parser.add_argument("--multiprocess", "-m", action='store_true', help="Flag to run multiprocessing.")
     parser.add_argument("--version", "-v", action="version", version=get_version('ntfsfind'))
     args = parser.parse_args()
@@ -96,6 +101,7 @@ def entry_point():
         args.volume_num,
         args.type,
         args.multiprocess,
+        args.ignore_case,
     )
     print('\n'.join(found_records))
 
