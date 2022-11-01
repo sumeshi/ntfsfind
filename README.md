@@ -116,6 +116,9 @@ The tool supports the following options.
     image file format (default: raw(dd-format)).
     (raw|e01|vhd|vhdx|vmdk) are supported.
 
+--ignore-case, -i:
+    flag to search with ignorecase.
+
 --multiprocess, -m:
     flag to run multiprocessing.
 ```
