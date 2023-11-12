@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ntfsfind"
-version = "2.4.1"
+version = "2.5.0"
 description = "A tool for search paths from an NTFS volume on an image file."
 authors = ["sumeshi <sum3sh1@protonmail.com>"]
 license = "LGPLv3+"
