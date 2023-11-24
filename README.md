@@ -126,7 +126,7 @@ Windows: Precompiled binaries for Windows are available in the GitHub releases s
 
 Ubuntu: Precompiled binaries for Linux are also available in the GitHub releases section.
 
-Python: If you prefer to run ntfsdump using Python, it is compatible with Python 3.11 and later versions (3.12 and above). 
+Python: If you prefer to run ntfsfind using Python, it is compatible with Python 3.11 and later versions (3.12 and above). 
 
 Make sure to choose the installation method that best suits your platform and requirements.
 
