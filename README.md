@@ -1,18 +1,17 @@
 # ntfsfind
 
-[![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![LGPLv3+ License](http://img.shields.io/badge/license-LGPLv3+-blue.svg?style=flat)](LICENSE)
 [![PyPI version](https://badge.fury.io/py/ntfsfind.svg)](https://badge.fury.io/py/ntfsfind)
 [![Python Versions](https://img.shields.io/pypi/pyversions/ntfsfind.svg)](https://pypi.org/project/ntfsfind/)
-[![docker build](https://github.com/sumeshi/ntfsdump/actions/workflows/build-docker-image.yaml/badge.svg)](https://github.com/sumeshi/ntfsdump/actions/workflows/build-docker-image.yaml)
 
 ![ntfsfind](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/baa85b045e0043914218cf9c0e1d1722e1e7524b/ntfsfind.svg)
 
-A tool to search file/directory/ADS paths directly from NTFS image files.
-
+An efficient tool for search files, directories, and alternate data streams directly from NTFS image files.
 
 ## Usage
 
-ntfsfind can be invoked from the shell or run from a Python script.
+**ntfsfind** can be executed from the command line or incorporated into a Python script.
+
 
 ```bash
 $ ntfsfind {{query_regex}} /path/to/imagefile.raw
@@ -43,9 +42,9 @@ for record in records:
 
 
 ### Query
+This tool allows you to search for file, directory, and ADS with regular expression queries.  
+Paths are separated by forward slashes (Unix/Linux-style) rather than backslashes (Windows-style).
 
-This tool can search files/directories/ADS with regular expression queries.
-Paths are separated by slashes(Unix/Linux-Style), not backslashes(Windows-Style).
 
 e.g.
 ```
@@ -61,11 +60,10 @@ Query: '.*:.*'
 
 
 ### Example
-
-This tool can extract and search $MFT information directly from image files(RAW, E01, VHD, VHDX, VMDK) with recorded NTFS volumes as follows.
+This tool can directly extract and search for $MFT information from image files (RAW, E01, VHD, VHDX, VMDK) containing recorded NTFS volumes as follows.
 
 ```.bash
-$ ntfsfind '.*\.evtx' /path/to//imagefile.raw
+$ ntfsfind '.*\.evtx' /path/to/imagefile.raw
 Windows/System32/winevt/Logs/Setup.evtx
 Windows/System32/winevt/Logs/Microsoft-Windows-All-User-Install-Agent%4Admin.evtx
 Logs/Windows PowerShell.evtx
@@ -88,68 +86,80 @@ Logs/Microsoft-Windows-SettingSync%4Operational.evtx
 
 
 #### When use with [ntfsdump](https://github.com/sumeshi/ntfsdump)
-
-Combined with ntfsdump, the retrieved files can be dumped directly from the image file.
+When combined with ntfsdump, the retrieved files can be directly dumped from the image file.
 
 ```.bash
 $ ntfsfind '.*\.evtx' /path/to/imagefile.raw | ntfsdump /path/to/your/imagefile
 ```
 
+ntfsfind and ntfsdump are compatible if they share the same major and minor versions. For instance, they can be used together if both are version 2.5.x.
+
 https://github.com/sumeshi/ntfsdump
 
 
 ### Options
-
-The tool supports the following options.
-
 ```
 --help, -h:
-    show help message and exit.
+    Display the help message and exit.
 
 --version, -v:
-    show program's version number and exit.
+    Show the program's version number and exit.
 
 --volume-num, -n:
-    NTFS volume number (default: autodetect).
+    Specify the NTFS volume number (default is autodetect).
 
 --type, -t:
-    image file format (default: raw(dd-format)).
-    (raw|e01|vhd|vhdx|vmdk) are supported.
+    Set the image file format (default is raw(dd-format)).
+    Supported formats include raw, e01, vhd, vhdx, and vmdk.
 
 --ignore-case, -i:
-    flag to search with ignorecase.
+    Enable case-insensitive search.
 
 --multiprocess, -m:
-    flag to run multiprocessing.
+    Enable multiprocessing for the operation.
 ```
 
+## Execution Environment
+You can run ntfsfind in the following environments:
 
-## Prerequisites
-The image file to be processed must meet the following conditions.
+Windows: Precompiled binaries for Windows are available in the GitHub releases section.
 
-- File format is RAW, E01, VHD, VHDX, or VMDK.
-- The target volume is an NT file system(NTFS).
-- The target partition style is GUID partition table(GPT).
+Ubuntu: Precompiled binaries for Linux are also available in the GitHub releases section.
 
-Additional file formats will be added in the future.  
-If you have any questions, please submit an issue.  
+Python: If you prefer to run ntfsfind using Python, it is compatible with Python 3.11 and later versions (3.12 and above). 
 
+Make sure to choose the installation method that best suits your platform and requirements.
 
 ## Installation
 
-### via PyPI
+### from PyPI
 
-```
+```bash
 $ pip install ntfsfind
 ```
 
-## Run with Docker
-https://hub.docker.com/r/sumeshi/ntfsfind
-
+### from GitHub Releases
+The version compiled into a binary using Nuitka is also available for use.
 
 ```bash
-$ docker run --rm -v $(pwd):/app -t sumeshi/ntfsfind:latest '/\$MFT' /app/sample.raw
+$ chmod +x ./ntfsfind
+$ ./ntfsfind {{options...}}
 ```
+
+```bat
+> ntfsfind .exe {{options...}}
+```
+
+## NTFS File Prerequisites
+
+The image file to be processed must meet the following conditions:
+
+- The file format must be raw, e01, vhd, vhdx, or vmdk.
+- It must use the NTFS (NT File System).
+- It must have a GUID Partition Table (GPT).
+
+Additional file formats will be added in the future.  
+If you have any questions, please feel free to submit an issue.
 
 ## Contributing
 
@@ -167,3 +177,4 @@ Powered by following libraries.
 - [libvhdi](https://github.com/libyal/libvhdi)
 - [libvmdk](https://github.com/libyal/libvmdk)
 - [pymft-rs](https://github.com/omerbenamram/pymft-rs)
+- [Nuitka](https://github.com/Nuitka/Nuitka)

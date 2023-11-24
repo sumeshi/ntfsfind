@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "ntfsfind"
 version = "2.5.0"
-description = "A tool for search paths from an NTFS volume on an image file."
+description = "An efficient tool for search files, directories, and alternate data streams directly from NTFS image files."
 authors = ["sumeshi <sum3sh1@protonmail.com>"]
 license = "LGPLv3+"
 readme = "README.md"
@@ -15,16 +15,16 @@ keywords = ['Security', 'Forensics', 'DFIR', 'Windows', 'NTFS']
 ntfsfind = 'ntfsfind:entry_point'
 
 [tool.poetry.dependencies]
-python = "^3.9"
-ntfsdump = "==2.4.0"
-mft = "0.6.1"
-pytsk3 = "^20211111"
+python = "^3.11"
+ntfsdump = "^2.5.3"
+mft = "^0.6.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
-black = "^22.1.0"
-mypy = "^0.940"
-flake8 = "^4.0.1"
+black = "^23.11.0"
+mypy = "^1.7.1"
+flake8 = "^6.1.0"
+nuitka = "1.7.10"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

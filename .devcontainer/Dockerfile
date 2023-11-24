@@ -1,4 +1,4 @@
-FROM python:3.12.0-bullseye
+FROM python:3.11.0-bullseye
 
 RUN apt -y update && apt upgrade -qqy && apt -y install \
     curl \
