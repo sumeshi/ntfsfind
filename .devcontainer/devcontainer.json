@@ -1,20 +1,24 @@
 {
-    "name": "dev",
+    "name": "dev-ntfsfind",
     "dockerFile": "Dockerfile",
     "postCreateCommand": "/bin/sh ./.devcontainer/postCreateCommands.sh",
-    "extensions": [
-		"ms-azuretools.vscode-docker",
-		"ms-python.python",
-		"ms-python.vscode-pylance"
-	],
-    "settings": {
-        "python.linting.flake8Enabled": true,
-        "python.formatting.provider": "black",
-        "[python]": {
-            "editor.formatOnSave": true,
-            "editor.codeActionsOnSave": {
-                "source.organizeImports": true
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "ms-python.vscode-pylance"
+            ],
+            "settings": {
+                "python.linting.flake8Enabled": true,
+                "python.formatting.provider": "black",
+                "[python]": {
+                    "editor.formatOnSave": true,
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": true
+                    }
+                }
             }
-        },
+        }
     }
 }
