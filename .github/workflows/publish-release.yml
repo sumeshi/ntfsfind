@@ -3,8 +3,7 @@ name: publish-release
 on:
   push:
     branches:
-      # - master
-      - 'feature/**'
+      - master
 
 jobs:
   build-windows:
@@ -64,15 +63,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
 
-      # - name: create release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     tag_name: ${{ steps.create_tag.outputs.version }}
-      #     files: dist/ntfsfind.exe
-      #     name: Release ${{ steps.create_tag.outputs.version }}
-      #     body: 'This release was automatically created by GitHub Actions.'
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.create_tag.outputs.version }}
+          files: dist/ntfsfind.exe
+          name: Release ${{ steps.create_tag.outputs.version }}
+          body: 'This release was automatically created by GitHub Actions.'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-linux:
     needs: build-windows
@@ -118,10 +117,10 @@ jobs:
           dist/ntfsfind -h
           dist/ntfsfind --version
 
-      # - name: upload asset to release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     tag_name: ${{ needs.build-windows.outputs.version }}
-      #     files: dist/ntfsfind
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: upload asset to release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.build-windows.outputs.version }}
+          files: dist/ntfsfind
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
