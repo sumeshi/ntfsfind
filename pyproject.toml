@@ -15,10 +15,9 @@ keywords = ['Security', 'Forensics', 'DFIR', 'Windows', 'NTFS']
 ntfsfind = 'ntfsfind:entry_point'
 
 [tool.poetry.dependencies]
-python = "^3.9"
-ntfsdump = "==2.4.0"
-mft = "0.6.1"
-pytsk3 = "^20211111"
+python = "^3.11"
+ntfsdump = "^2.5.3"
+mft = "^0.6.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
