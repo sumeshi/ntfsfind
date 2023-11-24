@@ -828,12 +828,12 @@ pytsk3 = ">=20231007,<20231008"
 
 [[package]]
 name = "nuitka"
-version = "1.9.1"
+version = "1.7.10"
 description = "Python compiler with full language support and CPython compatibility"
 optional = false
 python-versions = "*"
 files = [
-    {file = "Nuitka-1.9.1.tar.gz", hash = "sha256:250b76903eaa836637eed07d70f0e764e40991f0ce9566669b0026afa171da6f"},
+    {file = "Nuitka-1.7.10.tar.gz", hash = "sha256:61c84b4eb7105d20836940ab6134460b690da8aab7a74bdc84ddd05de1e04b16"},
 ]
 
 [package.dependencies]
@@ -1486,4 +1486,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "1a343900048db1434dcce42d838e997f1e12e51bb573f52f1a95d1cd7cc86c96"
+content-hash = "c00f0bc0f34c4496ee862e6365b9969f04a957122bcdbd1b04c9049e21f39177"
