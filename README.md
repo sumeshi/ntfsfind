@@ -4,36 +4,139 @@
 [![PyPI version](https://badge.fury.io/py/ntfsfind.svg)](https://badge.fury.io/py/ntfsfind)
 [![Python Versions](https://img.shields.io/pypi/pyversions/ntfsfind.svg)](https://pypi.org/project/ntfsfind/)
 
-![ntfsfind](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/baa85b045e0043914218cf9c0e1d1722e1e7524b/ntfsfind.svg)
+![ntfsfind logo](https://gist.githubusercontent.com/sumeshi/c2f430d352ae763273faadf9616a29e5/raw/baa85b045e0043914218cf9c0e1d1722e1e7524b/ntfsfind.svg)
 
 An efficient tool for search files, directories, and alternate data streams directly from NTFS image files.
 
-## Usage
+## 🚀 Overview
 
-**ntfsfind** can be executed from the command line or incorporated into a Python script.
+`ntfsfind` allows digital forensic investigators and incident responders to seamlessly search for records from disk images using regular expressions without needing to mount them. By leveraging powerful backend libraries, it supports reading from standard disk image formats (RAW, E01, VHD(x), VMDK) and reliably parses NTFS structures.
 
+## 📦 Features
+
+- **Direct Search**: Avoid mounting overhead by searching files directly from NTFS partitions.
+- **Support Multiple Formats**: Read from `.raw`, `.e01`, `.vhd`, `.vhdx`, and `.vmdk`.
+- **Regex Queries**: Find exact files and directories querying with Regular Expressions (partial matching is used by default, similar to `grep`).
+- **Alternate Data Stream (ADS)**: Supports finding hidden alternate data streams.
+- **Use as a CLI or Python Module**: Highly flexible to integrate into other automated tools.
+
+## ⚙️ Execution Environment
+
+- **Python**: Compatible with Python 3.13+.
+- **Precompiled Binaries**: Available for both Windows and Linux in the [GitHub releases](https://github.com/sumeshi/ntfsfind/releases) section.
+
+
+## 📂 Installation
 
 ```bash
-$ ntfsfind {{query_regex}} /path/to/imagefile.raw
+# From PyPI
+pip install ntfsfind
+
+# Form GitHub Releases (Precompiled Binaries)
+chmod +x ./ntfsfind
+./ntfsfind --help
+
+# execution via bat on Windows
+> ntfsfind.exe --help
 ```
+
+## 🛠️ Requirements & File Prerequisites
+
+The image file must meet the following conditions:
+- **Formats**: `raw`, `e01`, `vhd`, `vhdx`, `vmdk`.
+- **File System**: `NTFS`.
+- **Partition Table**: `GPT` (MBR will usually be auto-detected, but GPT is officially supported).
+
+
+## 💻 Usage
+
+### Command Line Interface
+
+You can pass arguments directly into the CLI. Paths are separated by forward slashes (`/`, Unix/Linux-style) rather than backslashes (`\`, Windows-style).
+
+```bash
+ntfsfind [OPTIONS] [SEARCH_QUERY] <IMAGE>
+```
+
+**Options**:
+- `--help`, `-h`: Show help message.
+- `--version`, `-V`: Display program version.
+- `--volume`, `-n`: Target specific NTFS volume number (default: auto-detects main OS volume).
+- `--format`, `-f`: Image file format (default: `raw`). Options: `raw`, `e01`, `vhd`, `vhdx`, `vmdk`.
+- `--ignore-case`, `-i`: Enable case-insensitive search.
+- `--fixed-strings`, `-F`: Interpret search query as a literal fixed string instead of a regular expression.
+- `--multiprocess`, `-m`: Enable multiprocessing for the operation.
+- `--out-mft`: Export the parsed `$MFT` raw bytes to the specified file path.
+
+#### Examples
+
+Find Eventlogs:
+```bash
+$ ntfsfind '.*\.evtx' ./path/to/your/image.raw
+/Windows/System32/winevt/Logs/Setup.evtx
+/Windows/System32/winevt/Logs/Microsoft-Windows-All-User-Install-Agent%4Admin.evtx
+/Logs/Windows PowerShell.evtx
+/Logs/Microsoft-Windows-Winlogon%4Operational.evtx
+/Logs/Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
+...
+```
+
+Find the original $MFT file and files in its path:
+```bash
+$ ntfsfind '\$MFT' ./path/to/your/image.raw
+/$MFT
+/$MFTMirr
+```
+
+Find Alternate Data Streams:
+```bash
+$ ntfsfind '.*:.*' ./path/to/your/image.raw
+```
+
+Export MFT and search directly from it (faster caching):
+```bash
+# 1. Export MFT from the image (search query can be omitted)
+$ ntfsfind --out-mft /tmp/my_mft.bin ./path/to/your/image.raw
+
+# 2. Later you can query the dumped MFT file instead of the heavy image!
+$ ntfsfind -F '.evtx' /tmp/my_mft.bin
+```
+
+#### Working with ntfsdump
+When combined with [ntfsdump](https://github.com/sumeshi/ntfsdump), the retrieved files can be directly dumped from the image file over standard input (pipe).
+`ntfsfind` and `ntfsdump` are compatible if they share the same major and minor versions (e.g. they can be used together if both are version `3.0.x`).
+```bash
+$ ntfsfind '.*\.evtx' ./path/to/imagefile.raw | ntfsdump ./path/to/your/imagefile
+```
+
+
+### Python Module
+
+You can incorporate `ntfsfind` logic into your own scripts.
 
 ```python
 from ntfsfind import ntfsfind
 
-# imagefile_path: str
+# image: str
 # search_query: str
-# volume_num: Optional[int] = None
-# file_type: Literal['raw', 'e01', 'vhd', 'vhdx', 'vmdk'] = 'raw'
+# volume: Optional[int] = None
+# format: Literal['raw', 'e01', 'vhd', 'vhdx', 'vmdk'] = 'raw'
 # multiprocess: bool = False
+# ignore_case: bool = False
+# fixed_strings: bool = False
+# out_mft: Optional[str] = None
 #
 # -> List[str]
 
 records = ntfsfind(
-    imagefile_path='./path/to/your/imagefile.raw',
+    image='./path/to/your/imagefile.raw',
     search_query='.*\.evtx',
-    volume_num=2,
-    file_type='raw',
-    multiprocess=False
+    volume=2,
+    format='raw',
+    multiprocess=False,
+    ignore_case=True,
+    fixed_strings=False,
+    out_mft='/tmp/dumped_mft.bin'
 )
 
 for record in records:
@@ -41,140 +144,18 @@ for record in records:
 ```
 
 
-### Query
-This tool allows you to search for file, directory, and ADS with regular expression queries.  
-Paths are separated by forward slashes (Unix/Linux-style) rather than backslashes (Windows-style).
+## 🤝 Contributing
 
+We welcome reports, issues, and feature requests. Please do so on the [GitHub repository](https://github.com/sumeshi/ntfsfind). :sushi: :sushi: :sushi:
 
-e.g.
-```
-Original Path: C:\$MFT
-Query: '/\$MFT'
+## 📜 License
 
-# find Eventlogs
-Query: '.*\.evtx'
+Released under the [LGPLv3+](LICENSE) License.
 
-# find Alternate Data Streams
-Query: '.*:.*'
-```
-
-
-### Example
-This tool can directly extract and search for $MFT information from image files (RAW, E01, VHD, VHDX, VMDK) containing recorded NTFS volumes as follows.
-
-```.bash
-$ ntfsfind '.*\.evtx' /path/to/imagefile.raw
-Windows/System32/winevt/Logs/Setup.evtx
-Windows/System32/winevt/Logs/Microsoft-Windows-All-User-Install-Agent%4Admin.evtx
-Logs/Windows PowerShell.evtx
-Logs/Microsoft-Windows-Winlogon%4Operational.evtx
-Logs/Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
-Logs/Microsoft-Windows-Windows Firewall With Advanced Security%4ConnectionSecurity.evtx
-Logs/Microsoft-Windows-UserPnp%4ActionCenter.evtx
-Logs/Microsoft-Windows-TerminalServices-RemoteConnectionManager%4Admin.evtx
-Logs/Microsoft-Windows-TerminalServices-LocalSessionManager%4Admin.evtx
-Logs/Microsoft-Windows-SMBServer%4Security.evtx
-Logs/Microsoft-Windows-SMBServer%4Connectivity.evtx
-Logs/Microsoft-Windows-SMBServer%4Audit.evtx
-Logs/Microsoft-Windows-SmbClient%4Security.evtx
-Logs/Microsoft-Windows-SMBClient%4Operational.evtx
-Logs/Microsoft-Windows-Shell-Core%4ActionCenter.evtx
-Logs/Microsoft-Windows-SettingSync%4Operational.evtx
-...
-
-```
-
-
-#### When use with [ntfsdump](https://github.com/sumeshi/ntfsdump)
-When combined with ntfsdump, the retrieved files can be directly dumped from the image file.
-
-```.bash
-$ ntfsfind '.*\.evtx' /path/to/imagefile.raw | ntfsdump /path/to/your/imagefile
-```
-
-ntfsfind and ntfsdump are compatible if they share the same major and minor versions. For instance, they can be used together if both are version 2.5.x.
-
-https://github.com/sumeshi/ntfsdump
-
-
-### Options
-```
---help, -h:
-    Display the help message and exit.
-
---version, -v:
-    Show the program's version number and exit.
-
---volume-num, -n:
-    Specify the NTFS volume number (default is autodetect).
-
---type, -t:
-    Set the image file format (default is raw(dd-format)).
-    Supported formats include raw, e01, vhd, vhdx, and vmdk.
-
---ignore-case, -i:
-    Enable case-insensitive search.
-
---multiprocess, -m:
-    Enable multiprocessing for the operation.
-```
-
-## Execution Environment
-You can run ntfsfind in the following environments:
-
-Windows: Precompiled binaries for Windows are available in the GitHub releases section.
-
-Ubuntu: Precompiled binaries for Linux are also available in the GitHub releases section.
-
-Python: If you prefer to run ntfsfind using Python, it is compatible with Python 3.11 and later versions (3.12 and above). 
-
-Make sure to choose the installation method that best suits your platform and requirements.
-
-## Installation
-
-### from PyPI
-
-```bash
-$ pip install ntfsfind
-```
-
-### from GitHub Releases
-The version compiled into a binary using Nuitka is also available for use.
-
-```bash
-$ chmod +x ./ntfsfind
-$ ./ntfsfind {{options...}}
-```
-
-```bat
-> ntfsfind .exe {{options...}}
-```
-
-## NTFS File Prerequisites
-
-The image file to be processed must meet the following conditions:
-
-- The file format must be raw, e01, vhd, vhdx, or vmdk.
-- It must use the NTFS (NT File System).
-- It must have a GUID Partition Table (GPT).
-
-Additional file formats will be added in the future.  
-If you have any questions, please feel free to submit an issue.
-
-## Contributing
-
-The source code for ntfsfind is hosted at GitHub, and you may download, fork, and review it from this repository(https://github.com/sumeshi/ntfsfind).  
-Please report issues and feature requests. :sushi: :sushi: :sushi:
-
-
-## License
-
-ntfsfind is released under the [LGPLv3+](https://github.com/sumeshi/ntfsfind/blob/master/LICENSE) License.
-
-Powered by following libraries.
-- [pytsk3](https://github.com/py4n6/pytsk)
+Powered by:
+- [pymft-rs](https://github.com/omerbenamram/pymft-rs)
+- [pytsk](https://github.com/py4n6/pytsk)
 - [libewf](https://github.com/libyal/libewf)
 - [libvhdi](https://github.com/libyal/libvhdi)
 - [libvmdk](https://github.com/libyal/libvmdk)
-- [pymft-rs](https://github.com/omerbenamram/pymft-rs)
 - [Nuitka](https://github.com/Nuitka/Nuitka)
