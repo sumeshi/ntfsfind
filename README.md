@@ -55,7 +55,7 @@ The image file must meet the following conditions:
 You can pass arguments directly into the CLI. Paths are separated by forward slashes (`/`, Unix/Linux-style) rather than backslashes (`\`, Windows-style).
 
 ```bash
-ntfsfind [OPTIONS] [SEARCH_QUERY] <IMAGE>
+ntfsfind [OPTIONS] <IMAGE> [SEARCH_QUERY]
 ```
 
 **Options**:
@@ -72,7 +72,7 @@ ntfsfind [OPTIONS] [SEARCH_QUERY] <IMAGE>
 
 Find Eventlogs:
 ```bash
-$ ntfsfind '.*\.evtx' ./path/to/your/image.raw
+$ ntfsfind ./path/to/your/image.raw '.*\.evtx'
 /Windows/System32/winevt/Logs/Setup.evtx
 /Windows/System32/winevt/Logs/Microsoft-Windows-All-User-Install-Agent%4Admin.evtx
 /Logs/Windows PowerShell.evtx
@@ -83,14 +83,14 @@ $ ntfsfind '.*\.evtx' ./path/to/your/image.raw
 
 Find the original $MFT file and files in its path:
 ```bash
-$ ntfsfind '\$MFT' ./path/to/your/image.raw
+$ ntfsfind ./path/to/your/image.raw '\$MFT'
 /$MFT
 /$MFTMirr
 ```
 
 Find Alternate Data Streams:
 ```bash
-$ ntfsfind '.*:.*' ./path/to/your/image.raw
+$ ntfsfind ./path/to/your/image.raw '.*:.*'
 ```
 
 Export MFT and search directly from it (faster caching):
@@ -99,14 +99,14 @@ Export MFT and search directly from it (faster caching):
 $ ntfsfind --out-mft /tmp/my_mft.bin ./path/to/your/image.raw
 
 # 2. Later you can query the dumped MFT file instead of the heavy image!
-$ ntfsfind -F '.evtx' /tmp/my_mft.bin
+$ ntfsfind -F /tmp/my_mft.bin '.evtx'
 ```
 
 #### Working with ntfsdump
 When combined with [ntfsdump](https://github.com/sumeshi/ntfsdump), the retrieved files can be directly dumped from the image file over standard input (pipe).
 `ntfsfind` and `ntfsdump` are compatible if they share the same major and minor versions (e.g. they can be used together if both are version `3.0.x`).
 ```bash
-$ ntfsfind '.*\.evtx' ./path/to/imagefile.raw | ntfsdump ./path/to/your/imagefile
+$ ntfsfind ./path/to/imagefile.raw '.*\.evtx' | ntfsdump ./path/to/your/imagefile.raw
 ```
 
 

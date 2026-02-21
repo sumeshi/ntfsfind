@@ -52,11 +52,11 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "search_query", type=str, nargs='?', default=None, 
-        help="Regex search term (e.g '.*\\.evtx'). Can be omitted if --out-mft is specified."
+        "image", type=str, help="path to the target disk image file or an exported $MFT file."
     )
     parser.add_argument(
-        "image", type=str, help="path to the target disk image file or an exported $MFT file."
+        "search_query", type=str, nargs='?', default=None, 
+        help="Regex search term (e.g '.*\\.evtx'). Can be omitted if --out-mft is specified."
     )
 
     return parser
