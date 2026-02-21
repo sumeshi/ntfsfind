@@ -37,7 +37,3 @@ dev = [
 
 [project.scripts]
 ntfsfind = 'ntfsfind.cli:main'
-
-[tool.uv.sources]
-ntfsdump = { path = "../ntfsdump" }
-
