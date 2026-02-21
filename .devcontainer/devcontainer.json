@@ -1,7 +1,7 @@
 {
     "name": "dev-ntfsfind",
     "dockerFile": "Dockerfile",
-    "postCreateCommand": "/bin/sh ./.devcontainer/postCreateCommands.sh",
+    "postCreateCommand": "/usr/bin/fish ./.devcontainer/postCreateCommands.fish",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -15,7 +15,7 @@
                 "[python]": {
                     "editor.formatOnSave": true,
                     "editor.codeActionsOnSave": {
-                        "source.organizeImports": true
+                        "source.organizeImports": "explicit"
                     }
                 }
             }
