@@ -34,15 +34,7 @@ jobs:
       - name: build
         run: |
           pip install nuitka
-          uv run python -m nuitka \
-            --standalone \
-            --onefile \
-            --follow-imports \
-            --include-distribution-metadata=ntfsfind \
-            -o ntfsfind.exe \
-            --output-dir=dist \
-            --assume-yes-for-downloads \
-            src/ntfsfind/cli.py
+          uv run python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind.exe --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
       
       - name: verify
         run: |
@@ -79,7 +71,7 @@ jobs:
 
   build-linux:
     needs: build-windows
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: ['3.13']
@@ -105,15 +97,7 @@ jobs:
       - name: build
         run: |
           pip install nuitka
-          uv run python -m nuitka \
-            --standalone \
-            --onefile \
-            --follow-imports \
-            --include-distribution-metadata=ntfsfind \
-            -o ntfsfind \
-            --output-dir=dist \
-            --assume-yes-for-downloads \
-            src/ntfsfind/cli.py
+          uv run python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
       
       - name: verify
         run: |

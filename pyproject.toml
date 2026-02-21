@@ -10,7 +10,7 @@ authors = [
 requires-python = ">=3.13"
 
 dependencies = [
-    "ntfsdump>=3.0.0",
+    "ntfsdump>=3.0.3",
     "mft>=0.6.1",
 ]
 
