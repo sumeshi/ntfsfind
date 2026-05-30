@@ -21,7 +21,7 @@ def is_mft_file(path: str) -> bool:
 
 def gen_filepaths(entries: list[PyMftEntry]) -> Generator[str, None, None]:
     for entry in entries:
-        path = str(entry.full_path)
+        path = str(entry.full_path).replace('\\', '/')
         if not path.startswith('/'):
             path = '/' + path
             
