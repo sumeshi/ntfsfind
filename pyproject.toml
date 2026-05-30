@@ -1,17 +1,17 @@
 [project]
 name = "ntfsfind"
 dynamic = ["version"]
-description = "An efficient tool for search files, directories, and alternate data streams directly from NTFS image files."
+description = "A command-line tool for searching files, directories, and alternate data streams directly from NTFS image files."
 readme = "README.md"
-license = "LGPL-3.0-or-later"
+license = "MIT"
 authors = [
     { name = "sumeshi", email = "sum3sh1@protonmail.com" }
 ]
 requires-python = ">=3.13"
 
 dependencies = [
-    "ntfsdump>=3.0.3",
-    "mft>=0.6.1",
+    "ntfsdump==3.1.0",
+    "mft==0.7.0",
 ]
 
 [build-system]
@@ -27,11 +27,11 @@ Repository = "https://github.com/sumeshi/ntfsfind"
 
 [dependency-groups]
 dev = [
-    "black",
-    "mypy",
-    "flake8",
-    "pytest",
-    "nuitka",
+    "black>=26.5.1",
+    "flake8>=7.3.0",
+    "mypy>=2.1.0",
+    "nuitka>=4.1.2",
+    "pytest>=9.0.3",
     "zstandard>=0.25.0",
 ]
 
