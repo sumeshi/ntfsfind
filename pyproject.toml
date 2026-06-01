@@ -1,7 +1,7 @@
 [project]
 name = "ntfsfind"
 dynamic = ["version"]
-description = "A command-line tool for searching files, directories, and alternate data streams directly from NTFS image files."
+description = "A command-line tool for efficiently searching files, directories, and alternate data streams directly from NTFS image files."
 readme = "README.md"
 license = "MIT"
 authors = [
