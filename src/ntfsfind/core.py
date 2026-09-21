@@ -1,13 +1,17 @@
 import io
 import os
 import re
-from pathlib import Path
-from typing import Optional, Union, Generator
-from functools import partial
 from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+from pathlib import Path
+from typing import Callable, Generator, Optional, Sequence, Union
 
+from mft import PyMftEntry, PyMftParser
 from ntfsdump.image import ImageFile
-from mft import PyMftParser, PyMftEntry
+
+from ntfsfind import output
+from ntfsfind.filters import build_filters
+from ntfsfind.record import Record, iter_records
 
 
 def is_mft_file(path: Union[str, Path]) -> bool:
@@ -20,15 +24,8 @@ def is_mft_file(path: Union[str, Path]) -> bool:
 
 
 def gen_filepaths(entries: list[PyMftEntry]) -> Generator[str, None, None]:
-    for entry in entries:
-        path = str(entry.full_path).replace("\\", "/")
-        if not path.startswith("/"):
-            path = "/" + path
-
-        yield path
-        for attribute in entry.attributes():
-            if attribute.name:
-                yield f"{path}:{attribute.name}"
+    for record in iter_records(entries):
+        yield record.path
 
 
 def filter_by_pattern(pattern: re.Pattern, filepath: str) -> Optional[str]:
@@ -37,30 +34,57 @@ def filter_by_pattern(pattern: re.Pattern, filepath: str) -> Optional[str]:
     return None
 
 
-def find_records(mft: bytes, pattern: re.Pattern, multiprocess: bool) -> list[str]:
+def _record_matches(
+    record: Record,
+    filters: Sequence[Callable[[Record], bool]],
+    pattern: Optional[re.Pattern],
+) -> bool:
+    for predicate in filters:
+        if not predicate(record):
+            return False
+    if pattern is not None and pattern.search(record.path) is None:
+        return False
+    return True
+
+
+def _filter_record(
+    record: Record,
+    filters: Sequence[Callable[[Record], bool]],
+    pattern: Optional[re.Pattern],
+) -> Optional[Record]:
+    if _record_matches(record, filters, pattern):
+        return record
+    return None
+
+
+def find_records(
+    mft: bytes,
+    pattern: Optional[re.Pattern],
+    multiprocess: bool,
+    filters: Sequence[Callable[[Record], bool]] = (),
+    output_format: str = "text",
+    timestamp_source: str = "si",
+) -> list[str]:
     parser = PyMftParser(io.BytesIO(mft))
+    records = iter_records(parser.entries())
 
-    # parallel execute
     if multiprocess:
-        CHUNK_SIZE = 10000
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
-            return [
-                el
-                for el in executor.map(
-                    partial(filter_by_pattern, pattern),
-                    gen_filepaths(parser.entries()),
-                    chunksize=CHUNK_SIZE,
+            matched = [
+                record
+                for record in executor.map(
+                    partial(_filter_record, filters=tuple(filters), pattern=pattern),
+                    records,
+                    chunksize=10000,
                 )
-                if el
+                if record is not None
             ]
-
-    # serial execute
     else:
-        return [
-            filepath
-            for filepath in gen_filepaths(parser.entries())
-            if filepath and re.search(pattern, filepath)
+        matched = [
+            record for record in records if _record_matches(record, filters, pattern)
         ]
+
+    return output.format_records(matched, output_format, timestamp_source)
 
 
 def ntfsfind(
@@ -74,7 +98,44 @@ def ntfsfind(
     ignore_case: bool = False,
     fixed_strings: bool = False,
     out_mft: Optional[str] = None,
+    extension=None,
+    path=None,
+    size=None,
+    created=None,
+    modified=None,
+    accessed=None,
+    timestamp_source: str = "si",
+    allocated_only: bool = False,
+    deleted_only: bool = False,
+    files_only: bool = False,
+    dirs_only: bool = False,
+    ads_only: bool = False,
+    no_ads: bool = False,
+    attributes=None,
+    output_format: str = "text",
 ) -> list[str]:
+    filters = build_filters(
+        extension=extension,
+        path=path,
+        size=size,
+        created=created,
+        modified=modified,
+        accessed=accessed,
+        timestamp_source=timestamp_source,
+        allocated_only=allocated_only,
+        deleted_only=deleted_only,
+        files_only=files_only,
+        dirs_only=dirs_only,
+        ads_only=ads_only,
+        no_ads=no_ads,
+        attributes=attributes,
+    )
+
+    pattern = None
+    if search_query is not None:
+        query = re.escape(search_query) if fixed_strings else search_query
+        pattern = re.compile(query, re.IGNORECASE) if ignore_case else re.compile(query)
+
     if is_mft_file(source):
         with open(source, "rb") as f:
             mft_content = f.read()
@@ -92,10 +153,12 @@ def ntfsfind(
         with open(out_mft, "wb") as f:
             f.write(mft_content)
 
-    if not search_query:
+    if search_query is None and not filters:
         return []
 
-    query = re.escape(search_query) if fixed_strings else search_query
-    pattern = re.compile(query, re.IGNORECASE) if ignore_case else re.compile(query)
+    if not filters and output_format == "text":
+        return find_records(mft_content, pattern, multiprocess)
 
-    return find_records(mft_content, pattern, multiprocess)
+    return find_records(
+        mft_content, pattern, multiprocess, filters, output_format, timestamp_source
+    )

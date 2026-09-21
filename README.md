@@ -11,6 +11,7 @@ A command-line tool for efficiently searching files, directories, and alternate 
 ## Overview
 
 `ntfsfind` allows digital forensic investigators and incident responders to search NTFS file system records in disk images using regular expressions, without mounting the images.
+Beside regex queries, it can narrow results by file metadata such as extension, path prefix, size, timestamps, entry state (allocated/deleted, file/directory, ADS) and file attributes, and render the matches in several output formats.
 By leveraging powerful backend libraries, it supports common forensic image formats such as RAW, E01, VHD/VHDX, and VMDK, and reliably parses NTFS structures.
 It can also read a VMware VM directory, VMX or VMSD directly, including snapshots and multiple virtual disks, without converting them first.
 
@@ -21,6 +22,8 @@ It can also read a VMware VM directory, VMX or VMSD directly, including snapshot
 - **Multiple Image Formats**: Read `RAW`, `E01`, `VHD`, `VHDX`, and `VMDK` images, and automatically detects the format by signature.
 - **VMware Support**: Read a VMware VM directory, VMX or VMSD directly, including snapshots and multiple virtual disks.
 - **Regex Queries**: Search file paths with regular expressions. Partial matching is used by default, similar to `grep`.
+- **Metadata Filtering**: Narrow the search by extension, path prefix, size, timestamps, entry state (allocated/deleted, file/directory, ADS) and file attributes. Filters combine with the regex query and each other using AND.
+- **Output Formats**: Render matches as pipe-friendly text, JSON Lines, CSV, or a human-readable table.
 - **Alternate Data Streams (ADS)**: Find hidden alternate data streams.
 - **CLI and Python Module**: Use it from the command line or integrate it into your own automation tools.
 
@@ -86,8 +89,20 @@ vm.vmsd
 - `--list-disks`: List VMware virtual disks (ID/NODE/SIZE/VMDK) and exit.
 - `--ignore-case`, `-i`: Enable case-insensitive search.
 - `--fixed-strings`, `-F`: Interpret search query as a literal fixed string instead of a regular expression.
+- `--extension`, `-e`: Only files whose final path element extension matches one of the comma-separated values (case-insensitive; with or without a leading dot). For example `-e evtx,exe` or `-e .evtx`. For alternate data streams, the base path is judged.
+- `--path`: Only records whose path starts with the given prefix (case-insensitive; `/` and `\` are normalized).
+- `--size`: Size filter using `$FILE_NAME.logical_size` (falling back to the `$MFT` file size). Syntax: `>=10MB`, `<1KB`, `4KB..10MB`. Units `B`/`KB`/`MB`/`GB`/`TB` are 2-based (`1KB` = 1024). A bare value is an exact match.
+- `--created`, `--modified`, `--accessed`: Timestamp filters. Syntax: `2024-01-01..2024-12-31`, `>=2025-04-01`, `2025-04-01T09:00..`. Naive timestamps are treated as UTC, and a date-only upper bound covers the whole day.
+- `--timestamp-source`: Which timestamps to compare: `si` (default, `$STANDARD_INFORMATION`) or `fn` (`$FILE_NAME`).
+- `--deleted-only` / `--allocated-only`: Restrict to deleted or allocated entries (mutually exclusive).
+- `--files-only` / `--dirs-only`: Restrict to files or directories (mutually exclusive).
+- `--ads-only` / `--no-ads`: Restrict to records with or without alternate data streams (mutually exclusive).
+- `--attributes`: Comma-separated `FILE_ATTRIBUTE_*` names such as `hidden,system,readonly`; all listed attributes must be present (AND).
+- `--output-format`: `text` (default; one path per line, pipe-friendly), `json` (JSON Lines), `csv`, or `table` (human-readable, sorted by entry id).
 - `--multiprocess`, `-m`: Enable multiprocessing for the operation.
 - `--out-mft`: Export the parsed `$MFT` raw bytes to the specified file path.
+
+All filters combine with the regex search query and with each other using AND. Filters can be used without a search query (e.g. `ntfsfind evidence.raw -e evtx`).
 
 
 #### Examples
@@ -117,6 +132,24 @@ Find alternate data streams:
 ```bash
 $ ntfsfind ./path/to/your/image.raw '.*:.*'
 ```
+
+Filter by metadata (extension, path, size, timestamps, entry state, attributes):
+
+```bash
+# Executables and event logs larger than 1MB, created in 2025 or later.
+ntfsfind evidence.raw -e evtx,exe --size '>=1MB' --created '>=2025-01-01'
+
+# Deleted records under System32.
+ntfsfind evidence.raw --path /Windows/System32 --deleted-only
+
+# PowerShell scripts as JSON Lines for post-processing.
+ntfsfind evidence.raw '.*\.ps1' --output-format json
+
+# Executables of 10MB or more as a human-readable table.
+ntfsfind evidence.raw -e exe --size '>=10MB' --output-format table
+```
+
+`table` is intended for human review and is sorted by entry id, while `text`/`json`/`csv` are intended for piping and post-processing. Searching with filters alone works without a regex query (e.g. `ntfsfind evidence.raw -e evtx`).
 
 Export `$MFT` and search it directly for faster repeated queries:
 A dumped `$MFT` file can also be used as input for faster repeated searches.
@@ -170,11 +203,13 @@ $ ntfsfind ./WindowsVM -s 5 -d 1 '.*\.evtx'
 #### Working with ntfsdump
 
 When combined with [ntfsdump](https://github.com/sumeshi/ntfsdump), matching files can be dumped directly from the image via standard input.
-`ntfsfind` and `ntfsdump` are compatible if they share the same major and minor versions (e.g. they can be used together if both are version `3.2.x`).
+The two tools share the same piped path format, so they remain compatible even when their version numbers differ (e.g. `ntfsfind` 3.3.x works with `ntfsdump` 3.3.x).
 
 ```bash
 $ ntfsfind ./path/to/imagefile.raw '.*\.evtx' | ntfsdump -o ./dump ./path/to/imagefile.raw
 ```
+
+Piping requires the default `--output-format text` (one path per line). The `json`, `csv` and `table` formats are **not** valid ntfsdump input.
 
 
 ### Python Module
@@ -194,6 +229,21 @@ from ntfsfind import ntfsfind
 # ignore_case: bool = False
 # fixed_strings: bool = False
 # out_mft: Optional[str] = None
+# extension: Optional[str] = None      # comma-separated, e.g. "evtx,exe"
+# path: Optional[str] = None           # path prefix filter
+# size: Optional[str] = None           # e.g. ">=10MB", "4KB..10MB"
+# created: Optional[str] = None        # e.g. "2025-01-01..2025-12-31"
+# modified: Optional[str] = None
+# accessed: Optional[str] = None
+# timestamp_source: str = "si"         # "si" or "fn"
+# allocated_only: bool = False
+# deleted_only: bool = False
+# files_only: bool = False
+# dirs_only: bool = False
+# ads_only: bool = False
+# no_ads: bool = False
+# attributes: Optional[str] = None     # comma-separated, e.g. "hidden,system"
+# output_format: str = "text"          # "text", "json", "csv" or "table"
 # -> List[str]
 
 records = ntfsfind(
@@ -213,6 +263,15 @@ records = ntfsfind(
     search_query=r".*\.evtx",
     snapshot='5',
     disk=1,
+)
+
+# Metadata filtering with JSON Lines output.
+records = ntfsfind(
+    source='./path/to/your/imagefile.raw',
+    extension='evtx,exe',
+    size='>=1MB',
+    created='>=2025-01-01',
+    output_format='json',
 )
 
 for record in records:

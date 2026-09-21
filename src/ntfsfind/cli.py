@@ -37,6 +37,22 @@ examples:
 
   ntfsfind --out-mft /tmp/my_mft.bin evidence.raw
       export $MFT only (no search query required).
+
+  ntfsfind evidence.raw -e evtx,exe --size '>=1MB' --created '>=2025-01-01'
+      combine extension, size and timestamp filters (AND).
+
+  ntfsfind evidence.raw --path /Windows/System32 --deleted-only
+      list deleted records under a path prefix.
+
+  ntfsfind evidence.raw '.*\\.ps1' --output-format json
+      emit one JSON object per record for piping/post-processing.
+
+  ntfsfind evidence.raw -e exe --size '>=10MB' --output-format table
+      render an aligned table for human review.
+
+note:
+  'table' is intended for human review. Use 'text' (default), 'json' or 'csv'
+  when piping output to another tool such as ntfsdump.
 """
 
 
@@ -141,6 +157,108 @@ def create_parser() -> argparse.ArgumentParser:
         default=None,
         help="export the parsed $MFT to the specified file path.",
     )
+    parser.add_argument(
+        "--extension",
+        "-e",
+        type=str,
+        default=None,
+        help=(
+            "comma-separated extension filter (e.g. 'evtx,exe'). "
+            "Case-insensitive; a leading dot is optional."
+        ),
+    )
+    parser.add_argument(
+        "--path",
+        type=str,
+        default=None,
+        help="match records whose path starts with this prefix (case-insensitive).",
+    )
+    parser.add_argument(
+        "--size",
+        type=str,
+        default=None,
+        help=(
+            "size filter such as '>=10MB', '<1KB', '4KB..10MB' or an exact "
+            "value (units: B/KB/MB/GB/TB)."
+        ),
+    )
+    parser.add_argument(
+        "--created",
+        type=str,
+        default=None,
+        help="creation timestamp filter (e.g. '>=2025-04-01', '2024-01-01..2024-12-31').",
+    )
+    parser.add_argument(
+        "--modified",
+        type=str,
+        default=None,
+        help="modification timestamp filter (same syntax as --created).",
+    )
+    parser.add_argument(
+        "--accessed",
+        type=str,
+        default=None,
+        help="access timestamp filter (same syntax as --created).",
+    )
+    parser.add_argument(
+        "--timestamp-source",
+        type=str,
+        default="si",
+        choices=["si", "fn"],
+        help=(
+            "timestamp source for filtering and table output: "
+            "$STANDARD_INFORMATION (si) or $FILE_NAME (fn)."
+        ),
+    )
+    parser.add_argument(
+        "--deleted-only",
+        action="store_true",
+        help="only records without the ALLOCATED flag.",
+    )
+    parser.add_argument(
+        "--allocated-only",
+        action="store_true",
+        help="only records with the ALLOCATED flag.",
+    )
+    parser.add_argument(
+        "--files-only",
+        action="store_true",
+        help="only file records (no directories).",
+    )
+    parser.add_argument(
+        "--dirs-only",
+        action="store_true",
+        help="only directory records.",
+    )
+    parser.add_argument(
+        "--ads-only",
+        action="store_true",
+        help="only named data stream (ADS) records.",
+    )
+    parser.add_argument(
+        "--no-ads",
+        action="store_true",
+        help="exclude named data stream (ADS) records.",
+    )
+    parser.add_argument(
+        "--attributes",
+        type=str,
+        default=None,
+        help=(
+            "comma-separated FILE_ATTRIBUTE_* filters (e.g. 'hidden,system'). "
+            "All listed attributes must be present."
+        ),
+    )
+    parser.add_argument(
+        "--output-format",
+        type=str,
+        default="text",
+        choices=["text", "json", "csv", "table"],
+        help=(
+            "output format: 'text' (default, paths for piping), 'json', "
+            "'csv', or 'table' (human review)."
+        ),
+    )
 
     parser.add_argument(
         "source",
@@ -154,7 +272,7 @@ def create_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Regex search term (e.g '.*\\.evtx'). Can be omitted if --out-mft, "
-            "--list-snapshots or --list-disks is specified."
+            "--list-snapshots, --list-disks or any filter option is specified."
         ),
     )
 
@@ -241,12 +359,44 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = create_parser()
     args = parser.parse_args(argv)
 
+    if args.deleted_only and args.allocated_only:
+        parser.error("--deleted-only and --allocated-only cannot be used together")
+
+    if args.files_only and args.dirs_only:
+        parser.error("--files-only and --dirs-only cannot be used together")
+
+    if args.ads_only and args.no_ads:
+        parser.error("--ads-only and --no-ads cannot be used together")
+
+    has_filter = any(
+        (
+            args.extension is not None,
+            args.path is not None,
+            args.size is not None,
+            args.created is not None,
+            args.modified is not None,
+            args.accessed is not None,
+            args.allocated_only,
+            args.deleted_only,
+            args.files_only,
+            args.dirs_only,
+            args.ads_only,
+            args.no_ads,
+            args.attributes is not None,
+        )
+    )
+
     if not (
-        args.search_query or args.out_mft or args.list_snapshots or args.list_disks
+        args.search_query
+        or args.out_mft
+        or args.list_snapshots
+        or args.list_disks
+        or has_filter
     ):
         parser.error(
             "the following arguments are required: search_query "
-            "(unless --out-mft, --list-snapshots or --list-disks is used)"
+            "(unless --out-mft, --list-snapshots, --list-disks or a filter "
+            "option such as --extension/--path/--size/--created is used)"
         )
 
     try:
@@ -276,6 +426,21 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             ignore_case=args.ignore_case,
             fixed_strings=args.fixed_strings,
             out_mft=args.out_mft,
+            extension=args.extension,
+            path=args.path,
+            size=args.size,
+            created=args.created,
+            modified=args.modified,
+            accessed=args.accessed,
+            timestamp_source=args.timestamp_source,
+            allocated_only=args.allocated_only,
+            deleted_only=args.deleted_only,
+            files_only=args.files_only,
+            dirs_only=args.dirs_only,
+            ads_only=args.ads_only,
+            no_ads=args.no_ads,
+            attributes=args.attributes,
+            output_format=args.output_format,
         )
         if found_records:
             print("\n".join(found_records))
