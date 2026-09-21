@@ -19,7 +19,7 @@ It can also read a VMware VM directory, VMX or VMSD directly, including snapshot
 ## Features
 
 - **Direct Search**: Search files directly from NTFS partitions without mounting the image.
-- **Multiple Image Formats**: Read `RAW`, `E01`, `VHD`, `VHDX`, and `VMDK` images, and automatically detects the format by signature.
+- **Multiple Image Formats**: Read `RAW`, `E01`, `VHD`, `VHDX`/`AVHDX` (including Hyper-V checkpoint chains), and `VMDK` images, and automatically detects the format by signature.
 - **VMware Support**: Read a VMware VM directory, VMX or VMSD directly, including snapshots and multiple virtual disks.
 - **Regex Queries**: Search file paths with regular expressions. Partial matching is used by default, similar to `grep`.
 - **Metadata Filtering**: Narrow the search by extension, path prefix, size, timestamps, entry state (allocated/deleted, file/directory, ADS) and file attributes. Filters combine with the regex query and each other using AND.
@@ -73,6 +73,7 @@ disk.raw
 evidence.E01
 disk.vhd
 disk.vhdx
+Disk_0.avhdx
 disk.vmdk
 vm.vmsd
 /path/to/vm/
@@ -167,6 +168,12 @@ The image format is auto-detected by signature. Force it with `--image-format` w
 ```bash
 $ ntfsfind evidence.E01 '.*\.evtx'
 $ ntfsfind evidence.bin --image-format raw '.*\.evtx'
+```
+
+Hyper-V checkpoint chains (differencing `AVHDX` files referencing their parent `VHDX`) are resolved directly from the VHDX metadata — the NTFS is read through the delta chain without merging or converting the images:
+
+```bash
+$ ntfsfind ./HyperVM/Disk_0.avhdx '.*\.evtx'
 ```
 
 

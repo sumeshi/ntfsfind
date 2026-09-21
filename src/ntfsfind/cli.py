@@ -35,6 +35,9 @@ examples:
   ntfsfind ./WindowsVM -s 5 -d 1 '.*\\.evtx'
       combine snapshot and disk selection.
 
+  ntfsfind ./HyperVM/Disk_0.avhdx '.*\\.evtx'
+      search a Hyper-V checkpoint chain (VHDX/AVHDX) without merging it.
+
   ntfsfind --out-mft /tmp/my_mft.bin evidence.raw
       export $MFT only (no search query required).
 
