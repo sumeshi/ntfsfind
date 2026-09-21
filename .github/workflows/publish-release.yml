@@ -15,13 +15,13 @@ jobs:
         python-version: ['3.13']
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: install python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       - name: Install dependencies
         run: |
           pip install uv
@@ -30,17 +30,26 @@ jobs:
       - name: run python
         run: |
           uv run ntfsfind -h
-      
+
       - name: build
         run: |
-          pip install nuitka
           uv run python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind.exe --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
-      
+
       - name: verify
         run: |
           dist/ntfsfind.exe -h
           dist/ntfsfind.exe --version
-      
+
+      - name: collect third-party licenses
+        run: |
+          mkdir -p dist/third-party-licenses
+          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libewf.txt https://raw.githubusercontent.com/libyal/libewf/main/COPYING.LESSER
+          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvhdi.txt https://raw.githubusercontent.com/libyal/libvhdi/main/COPYING.LESSER
+          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvmdk.txt https://raw.githubusercontent.com/libyal/libvmdk/main/COPYING.LESSER
+          curl -fsSL -o dist/third-party-licenses/LICENSE-pytsk3-apache-2.0.txt https://raw.githubusercontent.com/py4n6/pytsk/master/LICENSE
+          cp LICENSE dist/third-party-licenses/LICENSE-ntfsfind-mit.txt
+        shell: bash
+
       - name: create tag
         id: create_tag
         if: startsWith(github.ref, 'refs/heads/master')
@@ -53,17 +62,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
 
-      - name: rename asset
+      - name: package release zip
         if: startsWith(github.ref, 'refs/heads/master')
-        run: mv dist/ntfsfind.exe dist/ntfsfind-windows-x64-v${{ steps.create_tag.outputs.version }}.exe
+        run: |
+          mkdir -p dist/stage
+          cp dist/ntfsfind.exe dist/stage/
+          cp -r dist/third-party-licenses dist/stage/
+          cd dist/stage
+          uv run python -m zipfile -c ../ntfsfind-windows-x64-v${{ steps.create_tag.outputs.version }}.zip ntfsfind.exe third-party-licenses/
         shell: bash
 
       - name: create release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/heads/master')
         with:
           tag_name: v${{ steps.create_tag.outputs.version }}
-          files: dist/ntfsfind-windows-x64-v${{ steps.create_tag.outputs.version }}.exe
+          files: dist/ntfsfind-windows-x64-v${{ steps.create_tag.outputs.version }}.zip
           name: Release v${{ steps.create_tag.outputs.version }}
           body: 'This release was automatically created by GitHub Actions.'
         env:
@@ -71,19 +85,19 @@ jobs:
 
   build-linux:
     needs: build-windows
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ['3.13']
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: install python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       - name: Install dependencies
         run: |
           sudo apt install patchelf
@@ -96,24 +110,36 @@ jobs:
 
       - name: build
         run: |
-          pip install nuitka
           uv run python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
-      
+
       - name: verify
         run: |
           dist/ntfsfind -h
           dist/ntfsfind --version
 
-      - name: rename asset
+      - name: collect third-party licenses
+        run: |
+          mkdir -p dist/third-party-licenses
+          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libewf.txt https://raw.githubusercontent.com/libyal/libewf/main/COPYING.LESSER
+          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvhdi.txt https://raw.githubusercontent.com/libyal/libvhdi/main/COPYING.LESSER
+          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvmdk.txt https://raw.githubusercontent.com/libyal/libvmdk/main/COPYING.LESSER
+          curl -fsSL -o dist/third-party-licenses/LICENSE-pytsk3-apache-2.0.txt https://raw.githubusercontent.com/py4n6/pytsk/master/LICENSE
+          cp LICENSE dist/third-party-licenses/LICENSE-ntfsfind-mit.txt
+
+      - name: package release zip
         if: startsWith(github.ref, 'refs/heads/master')
-        run: mv dist/ntfsfind dist/ntfsfind-linux-x64-v${{ needs.build-windows.outputs.version }}
-        shell: bash
+        run: |
+          mkdir -p dist/stage
+          cp dist/ntfsfind dist/stage/
+          cp -r dist/third-party-licenses dist/stage/
+          cd dist/stage
+          uv run python -m zipfile -c ../ntfsfind-linux-x64-v${{ needs.build-windows.outputs.version }}.zip ntfsfind third-party-licenses/
 
       - name: upload asset to release
         if: startsWith(github.ref, 'refs/heads/master')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.build-windows.outputs.version }}
-          files: dist/ntfsfind-linux-x64-v${{ needs.build-windows.outputs.version }}
+          files: dist/ntfsfind-linux-x64-v${{ needs.build-windows.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

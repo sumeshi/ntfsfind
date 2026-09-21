@@ -1,0 +1,15 @@
+.encoding = "UTF-8"
+config.version = "8"
+virtualHW.version = "19"
+displayName = "SingleVM"
+guestOS = "windows9-64"
+
+scsi0.present = "TRUE"
+scsi0.virtualDev = "lsilogic"
+scsi0:0.present = "TRUE"
+scsi0:0.deviceType = "disk"
+scsi0:0.fileName = "Single.vmdk"
+
+ide0:0.present = "TRUE"
+ide0:0.deviceType = "cdrom-image"
+ide0:0.fileName = "install.iso"

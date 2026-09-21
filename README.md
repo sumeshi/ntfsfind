@@ -12,12 +12,14 @@ A command-line tool for efficiently searching files, directories, and alternate 
 
 `ntfsfind` allows digital forensic investigators and incident responders to search NTFS file system records in disk images using regular expressions, without mounting the images.
 By leveraging powerful backend libraries, it supports common forensic image formats such as RAW, E01, VHD/VHDX, and VMDK, and reliably parses NTFS structures.
+It can also read a VMware VM directory, VMX or VMSD directly, including snapshots and multiple virtual disks, without converting them first.
 
 
 ## Features
 
 - **Direct Search**: Search files directly from NTFS partitions without mounting the image.
-- **Multiple Image Formats**: Read `RAW`, `E01`, `VHD`, `VHDX`, and `VMDK` images.
+- **Multiple Image Formats**: Read `RAW`, `E01`, `VHD`, `VHDX`, and `VMDK` images, and automatically detects the format by signature.
+- **VMware Support**: Read a VMware VM directory, VMX or VMSD directly, including snapshots and multiple virtual disks.
 - **Regex Queries**: Search file paths with regular expressions. Partial matching is used by default, similar to `grep`.
 - **Alternate Data Streams (ADS)**: Find hidden alternate data streams.
 - **CLI and Python Module**: Use it from the command line or integrate it into your own automation tools.
@@ -46,9 +48,9 @@ ntfsfind.exe --help
 
 ## Supported Input
 
-- Image formats: `RAW`, `E01`, `VHD`, `VHDX`, `VMDK`.
+- Image formats: `RAW`, `E01`, `VHD`, `VHDX`, `VMDK` (auto-detected), plus VMware VM directories, VMX and VMSD.
 - File system: `NTFS`.
-- Partition tables: `GPT` is supported. `MBR` may be auto-detected depending on the image.
+- Partition tables: `GPT` and `MBR` are both supported.
 
 
 ## Usage
@@ -58,14 +60,30 @@ ntfsfind.exe --help
 You can pass arguments directly to the CLI. Search queries are matched against normalized NTFS paths using forward slashes (`/`).
 
 ```bash
-ntfsfind [OPTIONS] <IMAGE> [SEARCH_QUERY]
+ntfsfind [OPTIONS] <SOURCE> [SEARCH_QUERY]
+```
+
+`SOURCE` may be an image file, a VMware VM directory, a VMX or a VMSD:
+
+```text
+disk.raw
+evidence.E01
+disk.vhd
+disk.vhdx
+disk.vmdk
+vm.vmsd
+/path/to/vm/
 ```
 
 **Options**:
 - `--help`, `-h`: Show help message.
 - `--version`, `-V`: Display program version.
 - `--volume`, `-n`: Target specific NTFS volume number (default: auto-detects main OS volume).
-- `--format`, `-f`: Image file format (default: `raw`). Options: `raw`, `e01`, `vhd`, `vhdx`, `vmdk`.
+- `--image-format`: Force the image format instead of auto-detection. Options: `raw`, `e01`, `vhd`, `vhdx`, `vmdk`.
+- `--snapshot`, `-s`: Read the NTFS as it was at the given VMware snapshot UID (see `--list-snapshots`).
+- `--disk`, `-d`: Read a specific VMware virtual disk by ID (see `--list-disks`; auto-selected when unique).
+- `--list-snapshots`: List VMware snapshots (ID/NAME/CREATED/PARENT) and exit.
+- `--list-disks`: List VMware virtual disks (ID/NODE/SIZE/VMDK) and exit.
 - `--ignore-case`, `-i`: Enable case-insensitive search.
 - `--fixed-strings`, `-F`: Interpret search query as a literal fixed string instead of a regular expression.
 - `--multiprocess`, `-m`: Enable multiprocessing for the operation.
@@ -111,11 +129,48 @@ $ ntfsfind --out-mft /tmp/my_mft.bin ./path/to/your/image.raw
 $ ntfsfind /tmp/my_mft.bin '.evtx'
 ```
 
+The image format is auto-detected by signature. Force it with `--image-format` when the signature is not recognizable:
+
+```bash
+$ ntfsfind evidence.E01 '.*\.evtx'
+$ ntfsfind evidence.bin --image-format raw '.*\.evtx'
+```
+
+
+#### VMware Snapshots and Disks
+
+`ntfsfind` can search a VMware VM directory, VMX or VMSD directly, including a specific snapshot and virtual disk.
+
+List the snapshots and disks first:
+
+```bash
+$ ntfsfind ./WindowsVM --list-snapshots
+ID  NAME          CREATED              PARENT
+1   Initialized   2026-09-01 12:33:43  -
+5   NetConnect    2026-09-02 02:25:08  1
+6   PrepareTools  2026-09-10 17:46:35  5
+
+$ ntfsfind ./WindowsVM --list-disks
+ID  NODE     SIZE     VMDK
+0   nvme0:0  100 GiB  Windows10_22H2(x64).vmdk
+1   scsi0:1  500 GiB  Data.vmdk
+```
+
+Then search the NTFS as it was at a snapshot, optionally selecting a disk:
+
+```bash
+# Search snapshot 5 (auto-selects the disk when unique).
+$ ntfsfind ./WindowsVM -s 5 '.*\.evtx'
+
+# Search snapshot 5, second virtual disk.
+$ ntfsfind ./WindowsVM -s 5 -d 1 '.*\.evtx'
+```
+
 
 #### Working with ntfsdump
 
 When combined with [ntfsdump](https://github.com/sumeshi/ntfsdump), matching files can be dumped directly from the image via standard input.
-`ntfsfind` and `ntfsdump` are compatible if they share the same major and minor versions (e.g. they can be used together if both are version `3.0.x`).
+`ntfsfind` and `ntfsdump` are compatible if they share the same major and minor versions (e.g. they can be used together if both are version `3.2.x`).
 
 ```bash
 $ ntfsfind ./path/to/imagefile.raw '.*\.evtx' | ntfsdump -o ./dump ./path/to/imagefile.raw
@@ -129,26 +184,35 @@ You can incorporate `ntfsfind` logic into your own scripts.
 ```python
 from ntfsfind import ntfsfind
 
-# image: str
-# search_query: str
+# source: Union[str, Path]
+# search_query: Optional[str] = None
 # volume: Optional[int] = None
-# format: Literal['raw', 'e01', 'vhd', 'vhdx', 'vmdk'] = 'raw'
+# image_format: Optional[str] = None   # None = auto-detect
+# snapshot: Optional[str] = None       # VMware snapshot UID
+# disk: Optional[int] = None           # VMware virtual disk ID
 # multiprocess: bool = False
 # ignore_case: bool = False
 # fixed_strings: bool = False
 # out_mft: Optional[str] = None
-#
 # -> List[str]
 
 records = ntfsfind(
-    image='./path/to/your/imagefile.raw',
+    source='./path/to/your/imagefile.raw',
     search_query=r".*\.evtx",
     volume=2,
-    format='raw',
+    image_format=None,
     multiprocess=False,
     ignore_case=True,
     fixed_strings=False,
     out_mft='/tmp/dumped_mft.bin'
+)
+
+# VMware VM directory, snapshot and disk selection.
+records = ntfsfind(
+    source='./WindowsVM',
+    search_query=r".*\.evtx",
+    snapshot='5',
+    disk=1,
 )
 
 for record in records:
@@ -186,17 +250,17 @@ You may obtain, modify, and rebuild them from their upstream sources in accordan
   - Bundled version: [`libewf-python==20240506`](https://pypi.org/project/libewf-python/20240506/) (source: https://github.com/libyal/libewf/releases/tag/20240506)
   - License text: https://github.com/libyal/libewf/blob/main/COPYING.LESSER
 - [libvhdi / libvhdi-python](https://github.com/libyal/libvhdi)
-  - Bundled version: [`libvhdi-python==20251119`](https://pypi.org/project/libvhdi-python/20251119/) (source: https://github.com/libyal/libvhdi/releases/tag/20251119)
+  - Bundled version: [`libvhdi-python==20260901`](https://pypi.org/project/libvhdi-python/20260901/) (source: https://github.com/libyal/libvhdi/releases/tag/20260901)
   - License text: https://github.com/libyal/libvhdi/blob/main/COPYING.LESSER
 - [libvmdk / libvmdk-python](https://github.com/libyal/libvmdk)
-  - Bundled version: [`libvmdk-python==20240510`](https://pypi.org/project/libvmdk-python/20240510/) (source: https://github.com/libyal/libvmdk/releases/tag/20240510)
+  - Bundled version: [`libvmdk-python==20260714`](https://pypi.org/project/libvmdk-python/20260714/) (source: https://github.com/libyal/libvmdk/releases/tag/20260714)
   - License text: https://github.com/libyal/libvmdk/blob/main/COPYING.LESSER
 
 
 #### Apache-2.0
 
 - [pytsk / pytsk3](https://github.com/py4n6/pytsk) — licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-  - Bundled version: [`pytsk3==20250801`](https://pypi.org/project/pytsk3/20250801/)
+  - Bundled version: [`pytsk3==20260715`](https://pypi.org/project/pytsk3/20260715/)
   - License text: https://github.com/py4n6/pytsk/blob/master/LICENSE
 
 

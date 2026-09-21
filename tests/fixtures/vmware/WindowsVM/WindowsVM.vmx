@@ -1,0 +1,21 @@
+.encoding = "UTF-8"
+config.version = "8"
+virtualHW.version = "19"
+displayName = "WindowsVM"
+guestOS = "windows9-64"
+
+scsi0.present = "TRUE"
+scsi0.virtualDev = "lsilogic"
+scsi0:0.present = "TRUE"
+scsi0:0.deviceType = "disk"
+scsi0:0.fileName = "Windows.vmdk"
+scsi0:1.present = "TRUE"
+scsi0:1.deviceType = "disk"
+scsi0:1.fileName = "Data.vmdk"
+
+ide0:0.present = "TRUE"
+ide0:0.deviceType = "cdrom-image"
+ide0:0.fileName = "install.iso"
+
+sata0:0.present = "FALSE"
+sata0:0.fileName = "Disabled.vmdk"

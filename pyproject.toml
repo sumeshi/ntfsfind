@@ -10,7 +10,7 @@ authors = [
 requires-python = ">=3.13"
 
 dependencies = [
-    "ntfsdump==3.1.0",
+    "ntfsdump==3.2.0",
     "mft==0.7.0",
 ]
 
@@ -37,3 +37,11 @@ dev = [
 
 [project.scripts]
 ntfsfind = 'ntfsfind.cli:main'
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["ntfsdump.*", "mft.*"]
+ignore_missing_imports = true
