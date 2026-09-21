@@ -8,6 +8,7 @@ from typing import Callable, Generator, Optional, Sequence, Union
 
 from mft import PyMftEntry, PyMftParser
 from ntfsdump.image import ImageFile
+from ntfsdump.logger import MetaData
 
 from ntfsfind import output
 from ntfsfind.filters import build_filters
@@ -113,7 +114,13 @@ def ntfsfind(
     no_ads: bool = False,
     attributes=None,
     output_format: str = "text",
+    verbose: bool = False,
 ) -> list[str]:
+    # ntfsfind's stdout is consumed as a path list when piped into ntfsdump,
+    # so ntfsdump's progress lines must never reach stdout unless explicitly
+    # requested via verbose=True. 'danger' messages still go to stderr.
+    MetaData.quiet = not verbose
+
     filters = build_filters(
         extension=extension,
         path=path,

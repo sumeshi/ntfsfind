@@ -155,6 +155,15 @@ def create_parser() -> argparse.ArgumentParser:
         "--multiprocess", "-m", action="store_true", help="flag to run multiprocessing."
     )
     parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help=(
+            "show backend progress lines (e.g. '[analyze] ...') on stdout. "
+            "Not compatible with piping output to another tool."
+        ),
+    )
+    parser.add_argument(
         "--out-mft",
         type=str,
         default=None,
@@ -444,6 +453,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             no_ads=args.no_ads,
             attributes=args.attributes,
             output_format=args.output_format,
+            verbose=args.verbose,
         )
         if found_records:
             print("\n".join(found_records))

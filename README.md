@@ -101,6 +101,7 @@ vm.vmsd
 - `--attributes`: Comma-separated `FILE_ATTRIBUTE_*` names such as `hidden,system,readonly`; all listed attributes must be present (AND).
 - `--output-format`: `text` (default; one path per line, pipe-friendly), `json` (JSON Lines), `csv`, or `table` (human-readable, sorted by entry id).
 - `--multiprocess`, `-m`: Enable multiprocessing for the operation.
+- `--verbose`, `-v`: Show backend progress lines (e.g. `[analyze] ...`) on stdout. Suppressed by default because ntfsfind's stdout is consumed as a path list when piped into `ntfsdump`; only use `--verbose` when you are reading the output yourself.
 - `--out-mft`: Export the parsed `$MFT` raw bytes to the specified file path.
 
 All filters combine with the regex search query and with each other using AND. Filters can be used without a search query (e.g. `ntfsfind evidence.raw -e evtx`).

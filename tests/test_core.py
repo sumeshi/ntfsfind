@@ -77,6 +77,42 @@ def test_filter_by_pattern_uses_search_semantics():
     assert core.filter_by_pattern(pattern, "/Logs/Setup.evtx") == "/Logs/Setup.evtx"
 
 
+def test_ntfsfind_suppresses_ntfsdump_progress_lines(tmp_path, monkeypatch):
+    source = tmp_path / "evidence.mft"
+    source.write_bytes(b"FILE" + b"\x00" * 64)
+
+    import ntfsdump.logger
+
+    monkeypatch.setattr(ntfsdump.logger.MetaData, "quiet", False)
+    monkeypatch.setattr(core, "is_mft_file", lambda path: True)
+    monkeypatch.setattr(
+        core, "find_records", lambda mft, pattern, multiprocess, *a, **k: []
+    )
+
+    core.ntfsfind(source=str(source), search_query="x")
+
+    # ntfsfind's stdout is piped into ntfsdump as a path list; the progress
+    # lines must therefore stay suppressed unless verbose is requested.
+    assert ntfsdump.logger.MetaData.quiet is True
+
+
+def test_ntfsfind_verbose_reenables_ntfsdump_progress_lines(tmp_path, monkeypatch):
+    source = tmp_path / "evidence.mft"
+    source.write_bytes(b"FILE" + b"\x00" * 64)
+
+    import ntfsdump.logger
+
+    monkeypatch.setattr(ntfsdump.logger.MetaData, "quiet", True)
+    monkeypatch.setattr(core, "is_mft_file", lambda path: True)
+    monkeypatch.setattr(
+        core, "find_records", lambda mft, pattern, multiprocess, *a, **k: []
+    )
+
+    core.ntfsfind(source=str(source), search_query="x", verbose=True)
+
+    assert ntfsdump.logger.MetaData.quiet is False
+
+
 def test_ntfsfind_fixed_strings_escapes_dot(tmp_path, monkeypatch):
     source = tmp_path / "evidence.mft"
     source.write_bytes(b"FILE" + b"\x00" * 64)
