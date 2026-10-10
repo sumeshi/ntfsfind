@@ -117,6 +117,14 @@ def _first_content(attributes: list, type_code: int, type_name: str) -> Optional
     return None
 
 
+def _is_data_attribute(attribute: Any) -> bool:
+    """Return True when the attribute is an unnamed or named $DATA attribute."""
+    code = getattr(attribute, "type_code", None)
+    if code is not None:
+        return code == 128
+    return getattr(attribute, "type_name", None) == "DATA"
+
+
 def iter_records(entries: Iterable[Any]) -> Iterator[Record]:
     for entry in entries:
         attributes = list(entry.attributes())
@@ -129,18 +137,19 @@ def iter_records(entries: Iterable[Any]) -> Iterator[Record]:
 
         ads = []
         for attribute in attributes:
-            code = getattr(attribute, "type_code", None)
-            name = getattr(attribute, "type_name", None)
-            if code == 128 or name == "DATA":
+            if _is_data_attribute(attribute):
                 stream_name = getattr(attribute, "name", "")
                 if stream_name:
                     ads.append(stream_name)
 
-        size = None
-        if fn_content is not None:
+        # NOTE: attribute ``data_size`` is the length of the MFT attribute
+        # record (structure size), NOT the real data size (e.g. $MFT's $DATA
+        # reports 72 while the real file is 262144 bytes), so it must never
+        # be used as a size source. entry.file_size carries the real unnamed
+        # $DATA size; the first $FILE_NAME logical_size is a stale fallback.
+        size = getattr(entry, "file_size", None)
+        if size is None and fn_content is not None:
             size = getattr(fn_content, "logical_size", None)
-        if size is None:
-            size = getattr(entry, "file_size", None)
 
         if si_content is not None:
             file_flags = parse_flag_tokens(getattr(si_content, "file_flags", None))
@@ -176,11 +185,20 @@ def iter_records(entries: Iterable[Any]) -> Iterator[Record]:
             stream_name = getattr(attribute, "name", "")
             if not stream_name:
                 continue
-            code = getattr(attribute, "type_code", None)
-            name = getattr(attribute, "type_name", None)
+            # The mft binding exposes no real per-stream size: attribute
+            # ``data_size`` is the MFT attribute record length. Only a
+            # resident stream's actual content gives a real size; a
+            # non-resident stream reports None (unknown) instead of the
+            # base file's size, which would mislead size filtering/output.
+            stream_size = None
+            content = getattr(attribute, "attribute_content", None)
+            content_data = getattr(content, "data", None)
+            if isinstance(content_data, (bytes, bytearray)):
+                stream_size = len(content_data)
             yield replace(
                 base,
                 path=f"{base_path}:{stream_name}",
                 stream_name=stream_name,
-                is_data_stream=(code == 128 or name == "DATA"),
+                is_data_stream=_is_data_attribute(attribute),
+                size=stream_size,
             )

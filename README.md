@@ -92,7 +92,7 @@ vm.vmsd
 - `--fixed-strings`, `-F`: Interpret search query as a literal fixed string instead of a regular expression.
 - `--extension`, `-e`: Only files whose final path element extension matches one of the comma-separated values (case-insensitive; with or without a leading dot). For example `-e evtx,exe` or `-e .evtx`. For alternate data streams, the base path is judged.
 - `--path`: Only records whose path starts with the given prefix (case-insensitive; `/` and `\` are normalized).
-- `--size`: Size filter using `$FILE_NAME.logical_size` (falling back to the `$MFT` file size). Syntax: `>=10MB`, `<1KB`, `4KB..10MB`. Units `B`/`KB`/`MB`/`GB`/`TB` are 2-based (`1KB` = 1024). A bare value is an exact match.
+- `--size`: Size filter using the MFT entry's unnamed `$DATA` size (`entry.file_size`), falling back to `$FILE_NAME.logical_size` only when unavailable. Syntax: `>=10MB`, `<1KB`, `4KB..10MB`. Units `B`/`KB`/`MB`/`GB`/`TB` are 2-based (`1KB` = 1024). A bare value is an exact match.
 - `--created`, `--modified`, `--accessed`: Timestamp filters. Syntax: `2024-01-01..2024-12-31`, `>=2025-04-01`, `2025-04-01T09:00..`. Naive timestamps are treated as UTC, and a date-only upper bound covers the whole day.
 - `--timestamp-source`: Which timestamps to compare: `si` (default, `$STANDARD_INFORMATION`) or `fn` (`$FILE_NAME`).
 - `--deleted-only` / `--allocated-only`: Restrict to deleted or allocated entries (mutually exclusive).
@@ -105,6 +105,8 @@ vm.vmsd
 - `--out-mft`: Export the parsed `$MFT` raw bytes to the specified file path.
 
 All filters combine with the regex search query and with each other using AND. Filters can be used without a search query (e.g. `ntfsfind evidence.raw -e evtx`).
+
+ADS sizes use the actual resident data length when available. Non-resident ADS and streams without accessible resident data have an unknown size and are excluded whenever `--size` is used. Omit `--size` when you need to include these streams.
 
 
 #### Examples

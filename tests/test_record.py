@@ -3,6 +3,8 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+from ntfsfind.filters import SizeFilter
+from ntfsfind.parsers import parse_size
 from ntfsfind.record import Record, iter_records, normalize_path, parse_flag_tokens
 
 
@@ -125,8 +127,18 @@ def test_iter_records_yields_base_then_named_attributes_in_order():
 
 def test_iter_records_stream_metadata_and_data_stream_flag():
     attributes = [
-        FakeAttribute(type_code=128, type_name="DATA", name="Zone.Identifier"),
-        FakeAttribute(type_code=144, type_name="IndexRoot", name="$I30"),
+        FakeAttribute(
+            type_code=128,
+            type_name="DATA",
+            name="Zone.Identifier",
+            attribute_content=SimpleNamespace(data=b"x" * 55),
+        ),
+        FakeAttribute(
+            type_code=144,
+            type_name="IndexRoot",
+            name="$I30",
+            attribute_content=SimpleNamespace(data=b"x" * 66),
+        ),
     ]
     entry = FakeEntry(
         full_path="/a.txt",
@@ -145,8 +157,59 @@ def test_iter_records_stream_metadata_and_data_stream_flag():
     assert data_record.base_path == "/a.txt"
     assert index_record.base_path == "/a.txt"
     assert data_record.entry_id == 7
-    assert data_record.size == 123
+    assert data_record.size == 55
+    assert index_record.size == 66
+    assert base.size == 123
     assert base.ads == ("Zone.Identifier",)
+
+
+def test_iter_records_stream_size_is_none_when_not_resident():
+    # A non-resident stream exposes no content in the MFT entry, and the
+    # binding offers no real per-stream size: report None (unknown) instead
+    # of the base file's size.
+    attributes = [
+        FakeAttribute(type_code=128, type_name="DATA", name="Zone.Identifier"),
+        FakeAttribute(type_code=144, type_name="IndexRoot", name="$I30"),
+    ]
+    entry = FakeEntry(full_path="/a.txt", file_size=123, attributes=attributes)
+
+    data_record, index_record = list(iter_records([entry]))[1:]
+
+    assert data_record.size is None
+    assert index_record.size is None
+
+
+def test_iter_records_stream_size_ignores_attribute_data_size():
+    # attribute.data_size is the MFT attribute record length (e.g. $MFT's
+    # $DATA reports 72 while the real file is 262144 bytes): never a size.
+    attributes = [
+        FakeAttribute(
+            type_code=128,
+            type_name="DATA",
+            name="Zone.Identifier",
+            data_size=72,
+            attribute_content=None,
+        ),
+    ]
+    entry = FakeEntry(full_path="/a.txt", file_size=262144, attributes=attributes)
+
+    base, data_record = list(iter_records([entry]))
+
+    assert base.size == 262144
+    assert data_record.size is None
+
+
+def test_iter_records_data_like_type_name_with_other_type_code_is_not_data_stream():
+    attributes = [
+        FakeAttribute(type_code=144, type_name="DATA", name="weird"),
+    ]
+    entry = FakeEntry(full_path="/a", attributes=attributes)
+
+    base, stream_record = list(iter_records([entry]))
+
+    assert base.ads == ()
+    assert stream_record.stream_name == "weird"
+    assert stream_record.is_data_stream is False
 
 
 def test_iter_records_ads_contains_only_named_data_attributes():
@@ -180,7 +243,7 @@ def test_iter_records_allocated_and_directory_flags():
     assert base_record(None).is_dir is False
 
 
-def test_iter_records_size_from_first_fn_logical_size():
+def test_iter_records_size_prefers_entry_file_size_over_fn_logical_size():
     si = SimpleNamespace(created=None)
     attributes = [
         FakeAttribute(
@@ -196,6 +259,10 @@ def test_iter_records_size_from_first_fn_logical_size():
             type_name="FileName",
             attribute_content=SimpleNamespace(logical_size=222),
         ),
+        # attribute data_size values (333/444) are MFT record lengths and
+        # must be ignored as size sources.
+        FakeAttribute(type_code=128, type_name="DATA", name="", data_size=333),
+        FakeAttribute(type_code=128, type_name="DATA", name="ads", data_size=444),
     ]
     entry = FakeEntry(
         full_path="/a",
@@ -206,7 +273,34 @@ def test_iter_records_size_from_first_fn_logical_size():
 
     record = list(iter_records([entry]))[0]
 
-    assert record.size == 111
+    assert record.size == 999
+
+
+def test_iter_records_size_falls_back_to_fn_logical_size():
+    attributes = [
+        FakeAttribute(
+            type_code=48,
+            type_name="FileName",
+            attribute_content=SimpleNamespace(logical_size=111),
+        ),
+    ]
+    entry = FakeEntry(
+        full_path="/a",
+        flags="EntryFlags(INDEX_PRESENT)",
+        file_size=None,
+        attributes=attributes,
+    )
+
+    assert list(iter_records([entry]))[0].size == 111
+
+
+def test_iter_records_size_falls_back_to_file_size_without_fn():
+    attributes = [
+        FakeAttribute(type_code=128, type_name="DATA", name=""),
+    ]
+    entry = FakeEntry(full_path="/a", file_size=999, attributes=attributes)
+
+    assert list(iter_records([entry]))[0].size == 999
 
 
 def test_iter_records_size_falls_back_to_entry_file_size():
@@ -327,3 +421,41 @@ def test_stream_timestamp_selects_source():
 
     assert record.stream_timestamp("si") == (created, modified)
     assert record.stream_timestamp("fn") == (None, None)
+
+
+def test_size_filter_applies_to_stream_own_size():
+    attributes = [
+        FakeAttribute(type_code=128, type_name="DATA", name=""),
+        FakeAttribute(
+            type_code=128,
+            type_name="DATA",
+            name="ads",
+            attribute_content=SimpleNamespace(data=b"x" * 50),
+        ),
+    ]
+    entry = FakeEntry(full_path="/a", file_size=1000, attributes=attributes)
+    base, stream_record = list(iter_records([entry]))
+
+    keep_large = SizeFilter(parse_size(">=500"))
+
+    assert base.size == 1000
+    assert stream_record.size == 50
+    assert keep_large(base) is True
+    assert keep_large(stream_record) is False
+
+
+def test_size_filter_excludes_streams_of_unknown_size():
+    # Non-resident streams have no knowable size; a size filter must not
+    # present them as matching (nor misreport them with the base size).
+    attributes = [
+        FakeAttribute(type_code=128, type_name="DATA", name=""),
+        FakeAttribute(type_code=128, type_name="DATA", name="ads"),
+    ]
+    entry = FakeEntry(full_path="/a", file_size=1000, attributes=attributes)
+    base, stream_record = list(iter_records([entry]))
+
+    keep_small = SizeFilter(parse_size("<=500"))
+
+    assert stream_record.size is None
+    assert keep_small(base) is False
+    assert keep_small(stream_record) is False
