@@ -309,7 +309,7 @@ wheels = [
 
 [[package]]
 name = "ntfsdump"
-version = "3.3.0"
+version = "3.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "libewf-python" },
@@ -317,9 +317,9 @@ dependencies = [
     { name = "libvmdk-python" },
     { name = "pytsk3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ca/80/6275912dd3f87d5a2f163b78bf095e9fa731a81366352d080c33cd310ad6/ntfsdump-3.3.0.tar.gz", hash = "sha256:5c0c4dc38ea26691b1b91770d69e07176bb3d0af7c9a68e2c0507b5c609fbba9", size = 63546, upload-time = "2026-09-21T13:38:16.724Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/ff/a45423871e1e38208cd0e2619d4315be88273259f031f3fadeaa29ef913e/ntfsdump-3.3.2.tar.gz", hash = "sha256:5169bc4e5e36fb105953b50fd80f612d248cd9b2c2bc3bcbc356e984c6d373ab", size = 77676, upload-time = "2026-10-10T23:38:17.554Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/12/6d/e70f437b7b2f60674ac121877ead50409946a2105de87581178983332af7/ntfsdump-3.3.0-py3-none-any.whl", hash = "sha256:aa518967c07f79ad5939a3d071f6c08e11152d7d65ab016660d9854c3498d5ce", size = 27410, upload-time = "2026-09-21T13:38:15.776Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/a8/bc0008a9ccfed3abcfc26159b0f55e271df8f5366bc35967491d2610eb9d/ntfsdump-3.3.2-py3-none-any.whl", hash = "sha256:9b559710af59e7b4a01f4b844eddb27fb21f82e0fb6bff5bcb60ca3b898129f0", size = 32768, upload-time = "2026-10-10T23:38:16.284Z" },
 ]
 
 [[package]]
@@ -343,7 +343,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "mft", specifier = "==0.7.0" },
-    { name = "ntfsdump", specifier = "==3.3.0" },
+    { name = "ntfsdump", specifier = "==3.3.2" },
 ]
 
 [package.metadata.requires-dev]
