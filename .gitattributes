@@ -1,0 +1,2 @@
+# License collector verifies these vendored notices against byte-exact SHA-256 hashes.
+/.github/scripts/vendor/** -text

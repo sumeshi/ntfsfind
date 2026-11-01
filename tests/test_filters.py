@@ -64,7 +64,7 @@ def test_extension_of():
 def test_normalize_prefix():
     assert normalize_prefix("/Windows/System32") == "windows/system32"
     assert normalize_prefix("Windows\\System32\\") == "windows/system32"
-    assert normalize_prefix("  //Windows/System32//  ") == "windows/system32"
+    assert normalize_prefix("  //Windows/System32//  ") == "  //windows/system32//  "
     assert normalize_prefix("/") == ""
 
 

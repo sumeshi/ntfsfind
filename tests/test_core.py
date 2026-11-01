@@ -1,6 +1,8 @@
 import json
 import pickle
 import re
+import concurrent.futures.process as process_pool
+from types import SimpleNamespace
 
 import pytest
 from ntfsdump.errors import NtfsDumpError
@@ -9,6 +11,20 @@ from ntfsdump.image import is_ntfs_volume_description
 from ntfsfind import core
 from ntfsfind import filters as filters_module
 from ntfsfind.record import Record, iter_records
+
+# Complete 1024-byte FILE record with a valid USA and empty attribute list;
+# these tests replace the native parser but still exercise raw-header scanning.
+_test_record = bytearray(1024)
+_test_record[:4] = b"FILE"
+_test_record[4:8] = (40).to_bytes(2, "little") + (3).to_bytes(2, "little")
+_test_record[20:22] = (48).to_bytes(2, "little")
+_test_record[24:28] = (56).to_bytes(4, "little")
+_test_record[28:32] = (1024).to_bytes(4, "little")
+_test_record[40:46] = b"\xaa\xbb\x00\x00\x00\x00"
+_test_record[48:52] = b"\xff\xff\xff\xff"
+_test_record[510:512] = b"\xaa\xbb"
+_test_record[1022:1024] = b"\xaa\xbb"
+TEST_MFT = bytes(_test_record)
 
 
 class FakeAttribute:
@@ -205,7 +221,7 @@ def test_find_records_applies_filters_single(monkeypatch):
     monkeypatch.setattr(core, "PyMftParser", _make_fake_parser(entries))
     filters = filters_module.build_filters(extension="exe")
 
-    assert core.find_records(b"", None, False, filters=filters) == ["/a/b/c.exe"]
+    assert core.find_records(TEST_MFT, None, False, filters=filters) == ["/a/b/c.exe"]
 
 
 def test_find_records_multiprocess_matches_single(monkeypatch):
@@ -218,29 +234,47 @@ def test_find_records_multiprocess_matches_single(monkeypatch):
     monkeypatch.setattr(core, "ProcessPoolExecutor", FakeExecutorRecorder)
 
     filters = filters_module.build_filters(extension="exe")
-    single = core.find_records(b"", None, False, filters=filters)
-    multi = core.find_records(b"", None, True, filters=filters)
+    single = core.find_records(TEST_MFT, None, False, filters=filters)
+    multi = core.find_records(TEST_MFT, None, True, filters=filters)
 
     assert single == ["/a/b/c.exe", "/x/y/z.exe"]
     assert multi == single
     assert FakeExecutorRecorder.last_chunksize == 10000
 
 
+def test_multiprocess_uses_windows_worker_limit_on_large_hosts(monkeypatch):
+    # Use the real executor's Windows limit validation, without launching
+    # 61 processes or pretending the rest of the host OS is Windows.
+    real_executor = process_pool.ProcessPoolExecutor
+    monkeypatch.setattr(process_pool.os, "cpu_count", lambda: 64)
+    monkeypatch.setattr(process_pool.os, "process_cpu_count", lambda: 64)
+    monkeypatch.setattr(process_pool, "sys", SimpleNamespace(platform="win32"))
+
+    def windows_executor(*args, **kwargs):
+        with real_executor(*args, **kwargs) as executor:
+            assert executor._max_workers == 61
+        return FakeExecutorRecorder()
+
+    monkeypatch.setattr(core, "ProcessPoolExecutor", windows_executor)
+    monkeypatch.setattr(core, "PyMftParser", _make_fake_parser([FakeEntry("a.txt")]))
+    assert core.find_records(TEST_MFT, None, True) == ["/a.txt"]
+
+
 def test_find_records_output_format_routing(monkeypatch):
     entries = [FakeEntry(r"a\b\c.exe")]
     monkeypatch.setattr(core, "PyMftParser", _make_fake_parser(entries))
 
-    json_lines = core.find_records(b"", None, False, output_format="json")
+    json_lines = core.find_records(TEST_MFT, None, False, output_format="json")
     assert len(json_lines) == 1
     payload = json.loads(json_lines[0])
     assert payload["path"] == "/a/b/c.exe"
     assert payload["entry_id"] == 0
 
-    csv_lines = core.find_records(b"", None, False, output_format="csv")
+    csv_lines = core.find_records(TEST_MFT, None, False, output_format="csv")
     assert csv_lines[0].startswith("path,")
     assert "/a/b/c.exe" in csv_lines[1]
 
-    table_lines = core.find_records(b"", None, False, output_format="table")
+    table_lines = core.find_records(TEST_MFT, None, False, output_format="table")
     assert table_lines[0].split()[0] == "ENTRY"
 
 
@@ -295,6 +329,23 @@ def test_ntfsfind_filter_only_uses_full_call(tmp_path, monkeypatch):
     assert captured["output_format"] == "text"
 
 
+def test_image_export_only_does_not_request_attribute_list_clusters(
+    tmp_path, monkeypatch
+):
+    destination = tmp_path / "export.mft"
+    monkeypatch.setattr(core, "is_mft_file", lambda path: False)
+
+    def read_without_search(source, image_factory, **kwargs):
+        assert kwargs["attribute_list_values"] is None
+        assert kwargs["raw_attribute_ids"] is None
+        return TEST_MFT
+
+    monkeypatch.setattr(core, "read_image_mft", read_without_search)
+    monkeypatch.setattr(core, "export_mft", lambda destination, content: None)
+
+    assert core.ntfsfind("image.raw", out_mft=str(destination)) == []
+
+
 def test_find_records_combines_pattern_and_filters(monkeypatch):
     entries = [
         FakeEntry(r"a\b\c.exe"),
@@ -305,7 +356,7 @@ def test_find_records_combines_pattern_and_filters(monkeypatch):
     filters = filters_module.build_filters(extension="exe")
     pattern = re.compile(r"c\.exe$")
 
-    assert core.find_records(b"", pattern, False, filters=filters) == [
+    assert core.find_records(TEST_MFT, pattern, False, filters=filters) == [
         "/a/b/c.exe",
         "/x/y/c.exe",
     ]

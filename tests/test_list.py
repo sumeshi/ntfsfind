@@ -24,8 +24,8 @@ def test_list_disks_output(capsys):
         assert header in out
     assert "scsi0:0" in out
     assert "scsi0:1" in out
-    assert "Windows-000003.vmdk" in out
-    assert "Data-000001.vmdk" in out
+    assert "Windows.vmdk" in out
+    assert "Data.vmdk" in out
 
 
 def test_list_snapshots_on_non_vmware_source_errors(capsys, tmp_path):
@@ -35,6 +35,14 @@ def test_list_snapshots_on_non_vmware_source_errors(capsys, tmp_path):
     assert main([str(raw), "--list-snapshots"]) == 1
     err = capsys.readouterr().err
     assert "No VMware snapshot metadata was found." in err
+
+
+def test_list_disks_for_explicit_snapshot(capsys):
+    assert main([str(WINDOWS_VM), "--list-disks", "--snapshot", "3"]) == 0
+    out = capsys.readouterr().out
+    assert "Windows-000003.vmdk" in out
+    assert "Data-000001.vmdk" in out
+    assert "Windows.vmdk" not in out
 
 
 def test_list_disks_on_non_vmware_source_errors(capsys, tmp_path):

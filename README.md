@@ -54,6 +54,8 @@ ntfsfind.exe --help
 - Image formats: `RAW`, `E01`, `VHD`, `VHDX`, `VMDK` (auto-detected), plus VMware VM directories, VMX and VMSD.
 - File system: `NTFS`.
 - Partition tables: `GPT` and `MBR` are both supported.
+- NTFS partition-only images without a partition table are also supported. The
+  filesystem is verified at offset zero and uses volume address `0` with `--volume`.
 
 
 ## Usage
@@ -92,7 +94,7 @@ vm.vmsd
 - `--fixed-strings`, `-F`: Interpret search query as a literal fixed string instead of a regular expression.
 - `--extension`, `-e`: Only files whose final path element extension matches one of the comma-separated values (case-insensitive; with or without a leading dot). For example `-e evtx,exe` or `-e .evtx`. For alternate data streams, the base path is judged.
 - `--path`: Only records whose path starts with the given prefix (case-insensitive; `/` and `\` are normalized).
-- `--size`: Size filter using the MFT entry's unnamed `$DATA` size (`entry.file_size`), falling back to `$FILE_NAME.logical_size` only when unavailable. Syntax: `>=10MB`, `<1KB`, `4KB..10MB`. Units `B`/`KB`/`MB`/`GB`/`TB` are 2-based (`1KB` = 1024). A bare value is an exact match.
+- `--size`: Size filter using the MFT entry's unnamed `$DATA` size (`entry.file_size`), falling back to `$FILE_NAME.logical_size` only when unavailable. Syntax: `>=10MB`, `<1KB`, `4KB..10MB`. Units `B`/`KB`/`MB`/`GB`/`TB` are 2-based (`1KB` = 1024). Decimal bounds are compared exactly against integer byte sizes; for example, `>=0.1KB` excludes 102-byte files because the bound is 102.4 bytes. A bare value is an exact match.
 - `--created`, `--modified`, `--accessed`: Timestamp filters. Syntax: `2024-01-01..2024-12-31`, `>=2025-04-01`, `2025-04-01T09:00..`. Naive timestamps are treated as UTC, and a date-only upper bound covers the whole day.
 - `--timestamp-source`: Which timestamps to compare: `si` (default, `$STANDARD_INFORMATION`) or `fn` (`$FILE_NAME`).
 - `--deleted-only` / `--allocated-only`: Restrict to deleted or allocated entries (mutually exclusive).
@@ -102,11 +104,25 @@ vm.vmsd
 - `--output-format`: `text` (default; one path per line, pipe-friendly), `json` (JSON Lines), `csv`, or `table` (human-readable, sorted by entry id).
 - `--multiprocess`, `-m`: Enable multiprocessing for the operation.
 - `--verbose`, `-v`: Show backend progress lines (e.g. `[analyze] ...`) on stdout. Suppressed by default because ntfsfind's stdout is consumed as a path list when piped into `ntfsdump`; only use `--verbose` when you are reading the output yourself.
-- `--out-mft`: Export the parsed `$MFT` raw bytes to the specified file path.
+- `--out-mft`: Export the parsed `$MFT` raw bytes to a new file path. Existing files are never overwritten.
 
 All filters combine with the regex search query and with each other using AND. Filters can be used without a search query (e.g. `ntfsfind evidence.raw -e evtx`).
 
-ADS sizes use the actual resident data length when available. Non-resident ADS and streams without accessible resident data have an unknown size and are excluded whenever `--size` is used. Omit `--size` when you need to include these streams.
+Hard-linked files are searchable by each long filename. Each name uses its own
+`$FILE_NAME` timestamps when `--timestamp-source fn` is selected.
+
+Path filters preserve spaces in directory names. Attributes stored in extension
+MFT records are associated with their base file using resident attribute lists
+or, when searching a disk image, nonresident attribute lists read from the
+volume. References are checked against record sequence numbers and attribute
+IDs. Directory references that cannot be verified are marked `[UNKNOWN]`.
+
+A standalone `$MFT` export does not contain the external clusters holding a
+nonresident attribute list. If a search needs those bytes, it reports an error
+asking for the original disk image instead of silently omitting extension
+attributes. `--out-mft` without search conditions still exports the raw `$MFT`.
+
+ADS sizes use the actual resident data length or the real size recorded in the first non-resident extent (VCN 0). Continuation extents and streams without readable size metadata have an unknown size and are excluded whenever `--size` is used. Omit `--size` when you need to include streams whose sizes are unknown.
 
 
 #### Examples
@@ -156,7 +172,15 @@ ntfsfind evidence.raw -e exe --size '>=10MB' --output-format table
 `table` is intended for human review and is sorted by entry id, while `text`/`json`/`csv` are intended for piping and post-processing. Searching with filters alone works without a regex query (e.g. `ntfsfind evidence.raw -e evtx`).
 
 Export `$MFT` and search it directly for faster repeated queries:
-A dumped `$MFT` file can also be used as input for faster repeated searches.
+Choose a new output path: `--out-mft` refuses existing files to protect source images and previous exports. A dumped `$MFT` file can also be used as input for faster repeated searches.
+
+Exports are published atomically on filesystems that support hard links. On
+other filesystems, including FAT/exFAT, an exclusively created new file is
+written instead; it may be visible before the copy finishes. Existing files
+are protected in both cases, and failed copies remove their incomplete output.
+
+Search rejects MFT inputs that end within a record or contain an invalid record
+size, rather than reporting an incomplete search as successful.
 
 ```bash
 # 1. Export MFT from the image (search query can be omitted)
@@ -289,6 +313,27 @@ for record in records:
 ```
 
 
+## Development and releases
+
+Install Python 3.13 or 3.14 and `uv==0.12.23`, then run `uv sync --locked` and
+`uv run --locked pytest`. Linux source builds require a C compiler and Python
+development headers. The tests download and verify a small public NTFS sample.
+
+For Docker, run `docker build -t ntfsfind .` and
+`docker compose run --rm app /data/sample.raw '.*\.evtx'`.
+The current directory is mounted at `/data`; the image keeps its own dependencies
+at `/app/.venv`. Pass `--output /data/dump` to ntfsdump to retain extracted files.
+
+Releases are triggered by an explicit `v<version>` tag matching
+`src/ntfsfind/__about__.py`. Tests for Python 3.13 and 3.14, both Windows and Linux
+binary builds, and the Python package build must all pass before publication.
+The release workflow uses the repository's `PYPI_TOKEN` secret for PyPI and
+attaches versioned dependency license notices to both binary archives.
+For the Rust dependencies of `mft`, the collector verifies every registry crate
+against its source `Cargo.lock` checksum and preserves original notice paths.
+The license manifest records each crate and any explicitly supported exception
+for an archive that omits its license text; unhandled omissions fail the build.
+
 ## Contributing
 
 We welcome bug reports, issues, and feature requests. Please do so on the [GitHub repository](https://github.com/sumeshi/ntfsfind). :sushi: :sushi: :sushi:
@@ -336,5 +381,5 @@ You may obtain, modify, and rebuild them from their upstream sources in accordan
 #### MIT
 
 - [pymft-rs / mft](https://github.com/omerbenamram/pymft-rs) — licensed under the [MIT License](https://opensource.org/licenses/MIT).
-  - Bundled version: [`mft==0.7.0`](https://pypi.org/project/mft/0.7.0/)
+  - Bundled version: [`mft==0.10.0`](https://pypi.org/project/mft/0.10.0/)
   - License text: https://github.com/omerbenamram/pymft-rs/blob/master/pyproject.toml

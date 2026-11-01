@@ -10,12 +10,12 @@ authors = [
 requires-python = ">=3.13"
 
 dependencies = [
-    "ntfsdump==3.3.2",
-    "mft==0.7.0",
+    "ntfsdump==3.3.5",
+    "mft==0.10.0",
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33,<2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -27,11 +27,11 @@ Repository = "https://github.com/sumeshi/ntfsfind"
 
 [dependency-groups]
 dev = [
-    "black>=26.5.1",
-    "flake8>=7.3.0",
-    "mypy>=2.1.0",
-    "nuitka>=4.1.2",
-    "pytest>=9.0.3",
+    "black>=26.10.1",
+    "flake8>=7.5.0",
+    "mypy>=2.4.1",
+    "nuitka>=4.3.3",
+    "pytest>=9.2.0",
     "zstandard>=0.25.0",
 ]
 

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import pickle
 
 import pytest
 
@@ -62,9 +63,43 @@ def test_parse_size_unitless_is_bytes():
     assert parse_size("512").lower == 512
 
 
-def test_parse_size_decimal_rounds():
-    assert parse_size("1.5MB").lower == int(round(1.5 * MB))
-    assert parse_size("1.5KB").lower == int(round(1.5 * KB))
+def test_parse_size_decimal_integral_values_are_unchanged():
+    assert parse_size("1.5MB").lower == 3 * MB // 2
+    assert parse_size("1.5KB").lower == 3 * KB // 2
+
+
+def test_parse_size_fractional_byte_thresholds_are_exact():
+    assert parse_size(">=0.1KB")(102) is False
+    assert parse_size(">=0.1KB")(103) is True
+    assert parse_size(">=6.1B")(6) is False
+    assert parse_size("<=0.1KB")(102) is True
+    assert parse_size("<=0.1KB")(103) is False
+    assert parse_size(">0.1B")(0) is False
+    assert parse_size(">0.1B")(1) is True
+    assert parse_size("<0.1B")(0) is True
+    assert parse_size("<0.1B")(1) is False
+
+
+def test_parse_size_fractional_ranges_and_equality_are_exact():
+    predicate = parse_size("0.1KB..0.2KB")
+    assert predicate(102) is False
+    assert predicate(103) is True
+    assert predicate(204) is True
+    assert predicate(205) is False
+
+    # No integer byte count is exactly 0.1KB, so exact equality matches none.
+    equality = parse_size("=0.1KB")
+    assert equality(102) is False
+    assert equality(103) is False
+    assert parse_size("=0.0B")(0) is True
+
+
+def test_fractional_size_predicate_is_pickleable():
+    predicate = parse_size(">=0.1KB")
+    restored = pickle.loads(pickle.dumps(predicate))
+    assert restored == predicate
+    assert restored(102) is False
+    assert restored(103) is True
 
 
 def test_parse_size_units_are_case_insensitive():
@@ -167,6 +202,15 @@ def test_parse_time_open_start_date():
 
     assert predicate(utc(2025, 4, 1, 12, 0, 0)) is True
     assert predicate(utc(2025, 4, 2, 0, 0, 0)) is False
+
+
+def test_inclusive_date_upper_bound_includes_entire_day():
+    predicate = parse_time("<=2025-04-01")
+    assert predicate(utc(2025, 4, 1, 12))
+    assert predicate(utc(2025, 4, 1, 23, 59, 59, 999999))
+    assert not predicate(utc(2025, 4, 2))
+    assert not parse_time("<=2025-04-01T09:00")(utc(2025, 4, 1, 9, 0, 1))
+    assert not parse_time("<2025-04-01")(utc(2025, 4, 1))
 
 
 def test_parse_time_equals_date_is_whole_day():

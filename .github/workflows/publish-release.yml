@@ -2,144 +2,130 @@ name: publish-release
 
 on:
   push:
-    branches:
-      - master
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    outputs:
-      version: ${{ steps.create_tag.outputs.version }}
-    strategy:
-      matrix:
-        python-version: ['3.13']
+  version:
+    runs-on: ubuntu-latest
     steps:
-      - name: checkout
-        uses: actions/checkout@v6
-
-      - name: install python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync
-
-      - name: run python
-        run: |
-          uv run ntfsfind -h
-
-      - name: build
-        run: |
-          uv run python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind.exe --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
-
-      - name: verify
-        run: |
-          dist/ntfsfind.exe -h
-          dist/ntfsfind.exe --version
-
-      - name: collect third-party licenses
-        run: |
-          mkdir -p dist/third-party-licenses
-          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libewf.txt https://raw.githubusercontent.com/libyal/libewf/main/COPYING.LESSER
-          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvhdi.txt https://raw.githubusercontent.com/libyal/libvhdi/main/COPYING.LESSER
-          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvmdk.txt https://raw.githubusercontent.com/libyal/libvmdk/main/COPYING.LESSER
-          curl -fsSL -o dist/third-party-licenses/LICENSE-pytsk3-apache-2.0.txt https://raw.githubusercontent.com/py4n6/pytsk/master/LICENSE
-          cp LICENSE dist/third-party-licenses/LICENSE-ntfsfind-mit.txt
-        shell: bash
-
-      - name: create tag
-        id: create_tag
-        if: startsWith(github.ref, 'refs/heads/master')
-        run: |
-          version=$(grep '__version__' src/ntfsfind/__about__.py | awk -F '"' '{print $2}')
-          git tag "v$version"
-          git push origin "v$version"
-          echo "version=$version" >> $GITHUB_OUTPUT
+          python-version: '3.13'
+      - name: Check tag matches package version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PYTHON'
+          import os, runpy
+          version = runpy.run_path('src/ntfsfind/__about__.py')['__version__']
+          if os.environ['RELEASE_TAG'] != f'v{version}':
+              raise SystemExit('Release tag does not match package version')
+          PYTHON
+  tests:
+    needs: version
+    uses: ./.github/workflows/test.yaml
+  binaries:
+    needs: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            extension: .exe
+          - os: ubuntu-24.04
+            platform: linux
+            extension: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Linux build prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y patchelf
+      - name: Install locked dependencies
+        run: |
+          python -m pip install uv==0.12.23
+          uv sync --locked
+      - name: Build standalone binary
+        run: uv run --locked python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind${{ matrix.extension }} --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
+      - name: Verify binary
         shell: bash
-
-      - name: package release zip
-        if: startsWith(github.ref, 'refs/heads/master')
+        run: |
+          dist/ntfsfind${{ matrix.extension }} --help
+          dist/ntfsfind${{ matrix.extension }} --version
+      - name: Collect exact dependency license notices
+        run: uv run --locked python .github/scripts/collect_licenses.py ntfsfind dist/third-party-licenses
+      - name: Package binary and notices
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           mkdir -p dist/stage
-          cp dist/ntfsfind.exe dist/stage/
+          cp dist/ntfsfind${{ matrix.extension }} dist/stage/
           cp -r dist/third-party-licenses dist/stage/
           cd dist/stage
-          uv run python -m zipfile -c ../ntfsfind-windows-x64-v${{ steps.create_tag.outputs.version }}.zip ntfsfind.exe third-party-licenses/
-        shell: bash
-
-      - name: create release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/heads/master')
+          python -m zipfile -c ../ntfsfind-${{ matrix.platform }}-x64-$RELEASE_TAG.zip ntfsfind${{ matrix.extension }} third-party-licenses/
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: v${{ steps.create_tag.outputs.version }}
-          files: dist/ntfsfind-windows-x64-v${{ steps.create_tag.outputs.version }}.zip
-          name: Release v${{ steps.create_tag.outputs.version }}
-          body: 'This release was automatically created by GitHub Actions.'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-linux:
-    needs: build-windows
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python-version: ['3.13']
+          name: binary-${{ matrix.platform }}
+          path: dist/ntfsfind-${{ matrix.platform }}-x64-*.zip
+          if-no-files-found: error
+  package:
+    needs: tests
+    runs-on: ubuntu-latest
     steps:
-      - name: checkout
-        uses: actions/checkout@v6
-
-      - name: install python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
+          python-version: '3.13'
+      - run: python -m pip install uv==0.12.23
+      - name: Check lockfile and build package
         run: |
-          sudo apt install patchelf
-          pip install uv
-          uv sync
-
-      - name: run python
-        run: |
-          uv run ntfsfind -h
-
-      - name: build
-        run: |
-          uv run python -m nuitka --standalone --onefile --follow-imports --include-distribution-metadata=ntfsfind -o ntfsfind --output-dir=dist --assume-yes-for-downloads src/ntfsfind/cli.py
-
-      - name: verify
-        run: |
-          dist/ntfsfind -h
-          dist/ntfsfind --version
-
-      - name: collect third-party licenses
-        run: |
-          mkdir -p dist/third-party-licenses
-          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libewf.txt https://raw.githubusercontent.com/libyal/libewf/main/COPYING.LESSER
-          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvhdi.txt https://raw.githubusercontent.com/libyal/libvhdi/main/COPYING.LESSER
-          curl -fsSL -o dist/third-party-licenses/COPYING.LESSER-libvmdk.txt https://raw.githubusercontent.com/libyal/libvmdk/main/COPYING.LESSER
-          curl -fsSL -o dist/third-party-licenses/LICENSE-pytsk3-apache-2.0.txt https://raw.githubusercontent.com/py4n6/pytsk/master/LICENSE
-          cp LICENSE dist/third-party-licenses/LICENSE-ntfsfind-mit.txt
-
-      - name: package release zip
-        if: startsWith(github.ref, 'refs/heads/master')
-        run: |
-          mkdir -p dist/stage
-          cp dist/ntfsfind dist/stage/
-          cp -r dist/third-party-licenses dist/stage/
-          cd dist/stage
-          uv run python -m zipfile -c ../ntfsfind-linux-x64-v${{ needs.build-windows.outputs.version }}.zip ntfsfind third-party-licenses/
-
-      - name: upload asset to release
-        if: startsWith(github.ref, 'refs/heads/master')
+          uv lock --check
+          uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/*
+          if-no-files-found: error
+  publish:
+    needs: [binaries, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: binaries
+          merge-multiple: true
+      - run: python -m pip install uv==0.12.23
+      - name: Publish Python package
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish --check-url https://pypi.org/simple/
+      - name: Publish complete binary release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.build-windows.outputs.version }}
-          files: dist/ntfsfind-linux-x64-v${{ needs.build-windows.outputs.version }}.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          files: binaries/*.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true

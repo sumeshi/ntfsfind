@@ -2,31 +2,64 @@ name: pytest
 
 on:
   push:
-    branches:
-      - master
-      - develop
+    branches: [master, develop]
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
+  windows-license-collection:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install locked dependencies
+        run: |
+          python -m pip install uv==0.12.23
+          uv sync --locked
+      - name: Collect dependency license notices
+        run: uv run --locked python .github/scripts/collect_licenses.py ntfsfind dist/third-party-licenses
   pytest:
-    name: Run tests with pytest
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.13', '3.14']
     steps:
-      - name: checkout
-        uses: actions/checkout@v6
-
-      - name: install python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: setup uv
+      - name: Install locked dependencies
         run: |
-          pip install uv
-          uv sync
-
-      - name: run tests
-        run: uv run pytest
+          python -m pip install uv==0.12.23
+          uv sync --locked
+      - name: Check source formatting, lint and types
+        run: |
+          uv run --locked black --check --workers 1 src
+          uv run --locked flake8 src
+          uv run --locked mypy src
+      - name: Cache NTFS sample archive
+        id: ntfs-sample
+        uses: actions/cache@v4
+        with:
+          path: tests/cache/ntfs.tgs
+          key: ntfs-sample-79b3b6f3fa173fd0d2a05d0d2693afd0
+      - name: Download and verify NTFS sample
+        shell: bash
+        run: |
+          mkdir -p tests/cache
+          if [ ! -f tests/cache/ntfs.tgs ]; then
+            curl --fail --location --retry 5 --retry-all-errors --retry-delay 2 \
+              --connect-timeout 15 --max-time 120 \
+              --output tests/cache/ntfs.tgs.tmp \
+              'https://github.com/msuhanov/ntfs-samples/blob/master/ntfs.tgz?raw=true'
+            echo '06d69d832f911bd3e09b8331d8d48e1d44a0ad82fdf034addf7d14811ed57db0  tests/cache/ntfs.tgs.tmp' | sha256sum -c -
+            mv tests/cache/ntfs.tgs.tmp tests/cache/ntfs.tgs
+          fi
+          echo '06d69d832f911bd3e09b8331d8d48e1d44a0ad82fdf034addf7d14811ed57db0  tests/cache/ntfs.tgs' | sha256sum -c -
+      - name: Run all tests, including real-image E2E
+        run: uv run --locked pytest

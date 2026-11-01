@@ -11,6 +11,7 @@ from ntfsdump.formats.vmdk import probe_media_size
 from ntfsdump.sources import SourceResolver, VmwareSource
 from ntfsdump.vmware import NO_DISKS_MESSAGE, NO_SNAPSHOT_METADATA_MESSAGE
 from ntfsfind.core import ntfsfind
+from ntfsfind.snapshots import validate_selected_snapshot
 
 _EPILOG = """\
 examples:
@@ -54,8 +55,8 @@ examples:
       render an aligned table for human review.
 
 note:
-  'table' is intended for human review. Use 'text' (default), 'json' or 'csv'
-  when piping output to another tool such as ntfsdump.
+  Only 'text' (default) is valid when piping paths into ntfsdump.
+  Use 'json' or 'csv' for structured output, and 'table' for human review.
 """
 
 
@@ -167,7 +168,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--out-mft",
         type=str,
         default=None,
-        help="export the parsed $MFT to the specified file path.",
+        help="export the parsed $MFT to a new file; existing paths are never overwritten.",
     )
     parser.add_argument(
         "--extension",
@@ -399,7 +400,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     )
 
     if not (
-        args.search_query
+        args.search_query is not None
         or args.out_mft
         or args.list_snapshots
         or args.list_disks
@@ -424,6 +425,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
                 _print_snapshots(resolved)
                 return 0
             if args.list_disks:
+                if isinstance(resolved, VmwareSource):
+                    validate_selected_snapshot(resolved, args.snapshot)
                 _print_disks(resolved)
                 return 0
 
@@ -456,7 +459,19 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             verbose=args.verbose,
         )
         if found_records:
-            print("\n".join(found_records))
+            rendered = "\n".join(found_records)
+            if args.output_format == "csv" and hasattr(sys.stdout, "buffer"):
+                # Text-mode Windows stdout rewrites every LF, including those
+                # inside quoted filenames. Preserve serialized CSV verbatim.
+                sys.stdout.flush()
+                sys.stdout.buffer.write(
+                    (rendered + "\n").encode(
+                        sys.stdout.encoding or "utf-8", sys.stdout.errors or "strict"
+                    )
+                )
+                sys.stdout.buffer.flush()
+            else:
+                print(rendered)
     except NtfsDumpError as exc:
         print(str(exc), file=sys.stderr)
         return 1

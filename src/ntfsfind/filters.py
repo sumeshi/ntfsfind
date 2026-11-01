@@ -15,7 +15,7 @@ def extension_of(path: str) -> str:
 
 def normalize_prefix(value: str) -> str:
     """Normalize a path prefix to lowercase, forward-slash, boundary-free form."""
-    text = str(value).replace("\\", "/").strip()
+    text = str(value).replace("\\", "/")
     return text.strip("/").lower()
 
 
@@ -180,8 +180,7 @@ def build_filters(
 
     if path is not None:
         prefix = normalize_prefix(path)
-        if prefix:
-            filters.append(PathPrefixFilter(prefix))
+        filters.append(PathPrefixFilter(prefix))
 
     if size is not None:
         filters.append(SizeFilter(parse_size(size)))

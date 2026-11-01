@@ -1,13 +1,14 @@
-FROM python:3.13.12-slim-trixie
+# syntax=docker/dockerfile:1
+FROM python:3.13.16-slim-trixie
 
-RUN apt -y update && apt upgrade -qqy && apt -y install \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    gcc \
+    build-essential \
     git \
     fish \
     wget \
     ccache \
-    && apt clean
+    && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=dev
 ARG USER_UID=1000
@@ -23,4 +24,6 @@ RUN groupadd --gid $USER_GID $USERNAME \
 RUN chsh -s /usr/bin/fish $USERNAME
 
 USER $USERNAME
-RUN pip install -U pip && pip install uv
+RUN --mount=type=secret,id=proxy_ca,mode=0444 \
+    if [ -f /run/secrets/proxy_ca ]; then export PIP_CERT=/run/secrets/proxy_ca; fi; \
+    python -m pip install --user uv==0.12.23

@@ -3,6 +3,9 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+from ntfsdump.errors import NtfsDumpError
+
 from ntfsfind.filters import SizeFilter
 from ntfsfind.parsers import parse_size
 from ntfsfind.record import Record, iter_records, normalize_path, parse_flag_tokens
@@ -47,6 +50,136 @@ def test_parse_flag_tokens_with_parentheses():
     ) == ("ALLOCATED", "IS_EXTENSION", "SPECIAL_INDEX_PRESENT")
 
 
+def test_extension_of_base_record_zero_is_joined():
+    encoded_name = "extension".encode("utf-16le")
+    reference = bytearray((26 + len(encoded_name) + 7) // 8 * 8)
+    reference[:4] = (128).to_bytes(4, "little")
+    reference[4:6] = len(reference).to_bytes(2, "little")
+    reference[6] = len("extension")
+    reference[7] = 26
+    reference[16:24] = (100 | 1 << 48).to_bytes(8, "little")
+    reference[24:26] = (5).to_bytes(2, "little")
+    reference[26 : 26 + len(encoded_name)] = encoded_name
+    unnamed_reference = bytearray(32)
+    unnamed_reference[:4] = (128).to_bytes(4, "little")
+    unnamed_reference[4:6] = len(unnamed_reference).to_bytes(2, "little")
+    unnamed_reference[16:24] = (100 | 1 << 48).to_bytes(8, "little")
+    unnamed_reference[24:26] = (7).to_bytes(2, "little")
+    attribute_list = FakeAttribute(type_code=32)
+    attribute_list.raw_value = bytes(reference + unnamed_reference)
+    base = FakeEntry(
+        full_path="/$MFT",
+        entry_id=0,
+        sequence=3,
+        base_entry_id=0,
+        base_entry_sequence=0,
+        attributes=[attribute_list],
+    )
+    extension = FakeEntry(
+        entry_id=100,
+        sequence=1,
+        base_entry_id=0,
+        base_entry_sequence=3,
+        attributes=[
+            FakeAttribute(
+                type_code=128,
+                type_name="DATA",
+                name="extension",
+                attribute_content=SimpleNamespace(data=b"stream"),
+            ),
+            FakeAttribute(
+                type_code=128,
+                type_name="DATA",
+                attribute_content=SimpleNamespace(data=b"file size"),
+            ),
+        ],
+    )
+
+    records = list(iter_records([base, extension]))
+    assert [record.path for record in records] == ["/$MFT", "/$MFT:extension"]
+    assert records[0].size == len(b"file size")
+
+
+def test_nonresident_attribute_list_joins_only_matching_raw_attribute_id():
+    ref = bytearray(32)
+    ref[:4] = (128).to_bytes(4, "little")
+    ref[4:6] = len(ref).to_bytes(2, "little")
+    ref[16:24] = (100 | 1 << 48).to_bytes(8, "little")
+    ref[24:26] = (7).to_bytes(2, "little")
+    attribute_list = FakeAttribute(type_code=32, is_resident=False)
+    base = FakeEntry(
+        full_path="/file",
+        entry_id=50,
+        sequence=3,
+        base_entry_id=0,
+        base_entry_sequence=0,
+        attributes=[attribute_list],
+    )
+    extension = FakeEntry(
+        entry_id=100,
+        sequence=1,
+        base_entry_id=50,
+        base_entry_sequence=3,
+        attributes=[
+            FakeAttribute(
+                type_code=128,
+                name="",
+                attribute_content=SimpleNamespace(data=b"joined"),
+            )
+        ],
+    )
+    raw_ids = {
+        50: [((32, "", 0), 9)],
+        100: [((128, "", 0), 7)],
+    }
+    values = {(50, 9): bytes(ref)}
+
+    record = list(
+        iter_records(
+            [base, extension],
+            attribute_list_values=values,
+            raw_attribute_ids=raw_ids,
+        )
+    )[0]
+    assert record.size == len(b"joined")
+
+    wrong_id = {**raw_ids, 100: [((128, "", 0), 8)]}
+    record = list(
+        iter_records(
+            [base, extension],
+            attribute_list_values=values,
+            raw_attribute_ids=wrong_id,
+        )
+    )[0]
+    assert record.size is None
+
+    duplicate_signature = {
+        **raw_ids,
+        100: [((128, "", 0), 7), ((128, "", 0), 8)],
+    }
+    record = list(
+        iter_records(
+            [base, extension],
+            attribute_list_values=values,
+            raw_attribute_ids=duplicate_signature,
+        )
+    )[0]
+    assert record.size is None
+
+
+def test_nonresident_attribute_list_without_image_value_fails_clearly():
+    base = FakeEntry(
+        full_path="/file",
+        entry_id=50,
+        sequence=3,
+        base_entry_id=0,
+        base_entry_sequence=0,
+        attributes=[FakeAttribute(type_code=32, is_resident=False)],
+    )
+    with pytest.raises(NtfsDumpError, match="Search the original disk image"):
+        list(iter_records([base]))
+
+
 def test_parse_flag_tokens_without_parentheses():
     assert parse_flag_tokens("ALLOCATED | INDEX_PRESENT") == (
         "ALLOCATED",
@@ -57,6 +190,75 @@ def test_parse_flag_tokens_without_parentheses():
 def test_parse_flag_tokens_none_and_empty():
     assert parse_flag_tokens(None) == ()
     assert parse_flag_tokens("") == ()
+    assert parse_flag_tokens("(empty)") == ()
+
+
+def test_numeric_binding_flags_take_precedence_over_display_strings():
+    entry = FakeEntry(
+        full_path="/directory",
+        flags="display string is not an API",
+        flags_value=3,
+        attributes=[
+            FakeAttribute(
+                type_code=16,
+                attribute_content=SimpleNamespace(
+                    file_flags="(empty)", file_flags_value=0
+                ),
+            )
+        ],
+    )
+    record = next(iter_records([entry]))
+    assert record.allocated and record.is_dir
+    assert record.file_flags == ()
+
+
+def test_numeric_binding_flags_preserve_unknown_bits():
+    entry = FakeEntry(
+        full_path="/file",
+        attributes=[
+            FakeAttribute(
+                type_code=16,
+                attribute_content=SimpleNamespace(file_flags_value=0x80000006),
+            )
+        ],
+    )
+    assert next(iter_records([entry])).file_flags == (
+        "FILE_ATTRIBUTE_HIDDEN",
+        "FILE_ATTRIBUTE_SYSTEM",
+        "0x80000000",
+    )
+
+
+def test_numeric_binding_file_attributes_use_windows_sdk_bit_values():
+    entry = FakeEntry(
+        full_path="/file",
+        attributes=[
+            FakeAttribute(
+                type_code=16,
+                attribute_content=SimpleNamespace(
+                    file_flags_value=0x80800000 | 0x80000 | 0x100000 | 0x400000
+                ),
+            )
+        ],
+    )
+
+    assert next(iter_records([entry])).file_flags == (
+        "FILE_ATTRIBUTE_PINNED",
+        "FILE_ATTRIBUTE_UNPINNED",
+        "FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS",
+        "0x80800000",
+    )
+
+
+def test_raw_numeric_file_attribute_flags_use_windows_sdk_bit_values():
+    assert parse_flag_tokens(
+        "FileAttributeFlags(0x80000 | 0x100000 | 0x400000 | 0x80000000)"
+    ) == (
+        "FILE_ATTRIBUTE_PINNED",
+        "FILE_ATTRIBUTE_UNPINNED",
+        "FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS",
+        "0x80000000",
+    )
 
 
 def test_parse_flag_tokens_tuple_input():
@@ -163,10 +365,9 @@ def test_iter_records_stream_metadata_and_data_stream_flag():
     assert base.ads == ("Zone.Identifier",)
 
 
-def test_iter_records_stream_size_is_none_when_not_resident():
-    # A non-resident stream exposes no content in the MFT entry, and the
-    # binding offers no real per-stream size: report None (unknown) instead
-    # of the base file's size.
+def test_iter_records_stream_size_is_none_without_size_metadata():
+    # Without resident bytes or readable non-resident size metadata, report
+    # None instead of borrowing the base file's size.
     attributes = [
         FakeAttribute(type_code=128, type_name="DATA", name="Zone.Identifier"),
         FakeAttribute(type_code=144, type_name="IndexRoot", name="$I30"),
@@ -197,6 +398,20 @@ def test_iter_records_stream_size_ignores_attribute_data_size():
 
     assert base.size == 262144
     assert data_record.size is None
+
+
+@pytest.mark.parametrize("first_vcn, expected", [(0, 20312), (8, None), (None, None)])
+def test_nonresident_stream_size_is_valid_only_in_first_extent(first_vcn, expected):
+    attribute = FakeAttribute(
+        type_code=128,
+        name="stream",
+        is_resident=False,
+        attribute_content=SimpleNamespace(vcn_first=first_vcn, file_size=20312),
+    )
+    entry = FakeEntry(full_path="/a", file_size=999, attributes=[attribute])
+    record = list(iter_records([entry]))[1]
+    assert record.size == expected
+    assert SizeFilter(parse_size(">=1B"))(record) is (expected is not None)
 
 
 def test_iter_records_data_like_type_name_with_other_type_code_is_not_data_stream():
@@ -396,6 +611,25 @@ def test_iter_records_entry_id_and_hard_link_count_defaults():
     assert record.hard_link_count == 0
 
 
+def test_missing_parent_does_not_reuse_unrelated_parser_path():
+    filename = SimpleNamespace(
+        name="orphan.txt",
+        parent_entry_id=777,
+        parent_entry_sequence=1,
+        namespace="POSIX",
+    )
+    entry = FakeEntry(
+        full_path="/unrelated/orphan.txt",
+        entry_id=52,
+        sequence=1,
+        attributes=[FakeAttribute(type_code=48, attribute_content=filename)],
+    )
+
+    assert [record.path for record in iter_records([entry])] == [
+        "/[UNKNOWN]/orphan.txt"
+    ]
+
+
 def test_iter_records_entry_id_and_hard_link_count_values():
     entry = FakeEntry(full_path="/a", entry_id=42, hard_link_count=3)
 
@@ -445,8 +679,8 @@ def test_size_filter_applies_to_stream_own_size():
 
 
 def test_size_filter_excludes_streams_of_unknown_size():
-    # Non-resident streams have no knowable size; a size filter must not
-    # present them as matching (nor misreport them with the base size).
+    # Streams with missing size metadata must not match a size filter or
+    # inherit the base file's size.
     attributes = [
         FakeAttribute(type_code=128, type_name="DATA", name=""),
         FakeAttribute(type_code=128, type_name="DATA", name="ads"),

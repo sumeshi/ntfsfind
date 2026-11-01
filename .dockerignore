@@ -1,0 +1,16 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.cache
+tests
+build
+dist
+*.raw
+*.tgs
+*.E01
+*.vhd
+*.vhdx
+*.vmdk
+.env

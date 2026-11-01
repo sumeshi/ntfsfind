@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from fractions import Fraction
 from typing import Optional
 
 from ntfsdump.errors import NtfsDumpError
@@ -23,9 +24,9 @@ _TIME_OPERATORS = (">=", "<=", ">", "<", "=")
 
 @dataclass(frozen=True)
 class SizePredicate:
-    lower: Optional[int] = None
+    lower: Optional[int | Fraction] = None
     lower_inclusive: bool = True
-    upper: Optional[int] = None
+    upper: Optional[int | Fraction] = None
     upper_inclusive: bool = True
 
     def __call__(self, value: Optional[int]) -> bool:
@@ -47,15 +48,15 @@ class SizePredicate:
         return self(value)
 
 
-def _parse_size_value(token: str, spec: str) -> int:
+def _parse_size_value(token: str, spec: str) -> Fraction:
     match = _SIZE_VALUE_RE.fullmatch(token.strip())
     if match is None:
         raise NtfsDumpError(f"Invalid size specification: {spec}")
-    number = float(match.group(1))
+    number = Fraction(match.group(1))
     unit = match.group(2).upper()
     if unit not in _SIZE_UNITS:
         raise NtfsDumpError(f"Invalid size specification: {spec}")
-    return int(round(number * _SIZE_UNITS[unit]))
+    return number * _SIZE_UNITS[unit]
 
 
 def parse_size(spec: str) -> SizePredicate:
@@ -171,7 +172,9 @@ def parse_time(spec: str) -> TimePredicate:
             if operator == ">":
                 return TimePredicate(start=value, start_inclusive=False)
             if operator == "<=":
-                return TimePredicate(end=value, end_inclusive=True)
+                return TimePredicate(
+                    end=_end_bound(value, is_date_only), end_inclusive=True
+                )
             if operator == "<":
                 return TimePredicate(end=value, end_inclusive=False)
             if is_date_only:

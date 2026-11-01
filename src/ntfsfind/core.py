@@ -1,5 +1,4 @@
 import io
-import os
 import re
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -9,10 +8,16 @@ from typing import Callable, Generator, Optional, Sequence, Union
 from mft import PyMftEntry, PyMftParser
 from ntfsdump.image import ImageFile
 from ntfsdump.logger import MetaData
+from ntfsdump.sources import SourceResolver, VmwareSource
 
 from ntfsfind import output
+from ntfsfind.export import export_mft, require_new_destination
 from ntfsfind.filters import build_filters
+from ntfsfind.image import read_image_mft
+from ntfsfind.mft_validation import validate_mft_layout
+from ntfsfind.raw_attributes import attribute_id_signatures
 from ntfsfind.record import Record, iter_records
+from ntfsfind.snapshots import validate_selected_snapshot
 
 
 def is_mft_file(path: Union[str, Path]) -> bool:
@@ -65,12 +70,25 @@ def find_records(
     filters: Sequence[Callable[[Record], bool]] = (),
     output_format: str = "text",
     timestamp_source: str = "si",
+    attribute_list_values: Optional[dict[tuple[int, int], bytes]] = None,
+    raw_attribute_ids: Optional[
+        dict[int, list[tuple[tuple[int, str, int], int]]]
+    ] = None,
 ) -> list[str]:
+    validate_mft_layout(mft)
     parser = PyMftParser(io.BytesIO(mft))
-    records = iter_records(parser.entries())
+    records = iter_records(
+        parser.entries(),
+        attribute_list_values=attribute_list_values,
+        raw_attribute_ids=(
+            raw_attribute_ids
+            if raw_attribute_ids is not None
+            else attribute_id_signatures(mft)
+        ),
+    )
 
     if multiprocess:
-        with ProcessPoolExecutor(max_workers=os.cpu_count()) as executor:
+        with ProcessPoolExecutor() as executor:
             matched = [
                 record
                 for record in executor.map(
@@ -116,6 +134,9 @@ def ntfsfind(
     output_format: str = "text",
     verbose: bool = False,
 ) -> list[str]:
+    if out_mft:
+        require_new_destination(Path(out_mft))
+
     # ntfsfind's stdout is consumed as a path list when piped into ntfsdump,
     # so ntfsdump's progress lines must never reach stdout unless explicitly
     # requested via verbose=True. 'danger' messages still go to stderr.
@@ -143,29 +164,64 @@ def ntfsfind(
         query = re.escape(search_query) if fixed_strings else search_query
         pattern = re.compile(query, re.IGNORECASE) if ignore_case else re.compile(query)
 
-    if is_mft_file(source):
+    if snapshot is not None:
+        resolved = SourceResolver().resolve(
+            source, image_format=image_format, snapshot=snapshot, disk=disk
+        )
+        if isinstance(resolved, VmwareSource):
+            validate_selected_snapshot(resolved, snapshot)
+
+    needs_search = search_query is not None or bool(filters)
+    attribute_list_values: dict[tuple[int, int], bytes] | None = (
+        {} if needs_search else None
+    )
+    raw_attribute_ids: dict[int, list[tuple[tuple[int, str, int], int]]] | None = (
+        {} if needs_search else None
+    )
+    from_image = not is_mft_file(source)
+    if not from_image:
         with open(source, "rb") as f:
             mft_content = f.read()
     else:
-        img = ImageFile(
+        mft_content = read_image_mft(
             source,
+            ImageFile,
             volume=volume,
             image_format=image_format,
             snapshot=snapshot,
             disk=disk,
+            attribute_list_values=attribute_list_values,
+            raw_attribute_ids=raw_attribute_ids,
         )
-        mft_content = img.main_volume._NtfsVolume__read_file("/$MFT")
 
     if out_mft:
-        with open(out_mft, "wb") as f:
-            f.write(mft_content)
+        export_mft(Path(out_mft), mft_content)
 
     if search_query is None and not filters:
         return []
 
     if not filters and output_format == "text":
+        if from_image:
+            return find_records(
+                mft_content,
+                pattern,
+                multiprocess,
+                attribute_list_values=attribute_list_values,
+                raw_attribute_ids=raw_attribute_ids or None,
+            )
         return find_records(mft_content, pattern, multiprocess)
 
+    if from_image:
+        return find_records(
+            mft_content,
+            pattern,
+            multiprocess,
+            filters,
+            output_format,
+            timestamp_source,
+            attribute_list_values,
+            raw_attribute_ids or None,
+        )
     return find_records(
         mft_content, pattern, multiprocess, filters, output_format, timestamp_source
     )

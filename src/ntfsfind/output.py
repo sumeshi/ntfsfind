@@ -86,49 +86,59 @@ def _csv_value(value: Any) -> str:
     return str(value)
 
 
+def _csv_row(values: Sequence[Any]) -> str:
+    buffer = io.StringIO(newline="")
+    # Include CR as well as LF in the dialect so either character in a field
+    # is quoted. Remove only the terminator we added, preserving field data.
+    csv.writer(buffer, lineterminator="\r\n").writerow(values)
+    return buffer.getvalue()[:-2]
+
+
 def render_csv(records: Sequence[Record]) -> list[str]:
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerow(
-        [
-            "path",
-            "entry_id",
-            "size",
-            "allocated",
-            "dir",
-            "ads",
-            "file_flags",
-            "si_created",
-            "si_modified",
-            "si_accessed",
-            "si_mft_modified",
-            "fn_created",
-            "fn_modified",
-            "fn_accessed",
-            "fn_mft_modified",
-        ]
-    )
-    for record in records:
-        writer.writerow(
+    rows = [
+        _csv_row(
             [
-                record.path,
-                record.entry_id,
-                _csv_value(record.size),
-                _csv_value(record.allocated),
-                _csv_value(record.is_dir),
-                "|".join(record.ads),
-                "|".join(record.file_flags),
-                _csv_value(record.si_created),
-                _csv_value(record.si_modified),
-                _csv_value(record.si_accessed),
-                _csv_value(record.si_mft_modified),
-                _csv_value(record.fn_created),
-                _csv_value(record.fn_modified),
-                _csv_value(record.fn_accessed),
-                _csv_value(record.fn_mft_modified),
+                "path",
+                "entry_id",
+                "size",
+                "allocated",
+                "dir",
+                "ads",
+                "file_flags",
+                "si_created",
+                "si_modified",
+                "si_accessed",
+                "si_mft_modified",
+                "fn_created",
+                "fn_modified",
+                "fn_accessed",
+                "fn_mft_modified",
             ]
         )
-    return buffer.getvalue().splitlines()
+    ]
+    for record in records:
+        rows.append(
+            _csv_row(
+                [
+                    record.path,
+                    record.entry_id,
+                    _csv_value(record.size),
+                    _csv_value(record.allocated),
+                    _csv_value(record.is_dir),
+                    "|".join(record.ads),
+                    "|".join(record.file_flags),
+                    _csv_value(record.si_created),
+                    _csv_value(record.si_modified),
+                    _csv_value(record.si_accessed),
+                    _csv_value(record.si_mft_modified),
+                    _csv_value(record.fn_created),
+                    _csv_value(record.fn_modified),
+                    _csv_value(record.fn_accessed),
+                    _csv_value(record.fn_mft_modified),
+                ]
+            )
+        )
+    return rows
 
 
 def _state(record: Record) -> str:
